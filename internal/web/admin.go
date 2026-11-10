@@ -19,6 +19,7 @@ import (
 
 	"github.com/davidenegrini/veronatao/internal/backup"
 	"github.com/davidenegrini/veronatao/internal/domain"
+	"github.com/davidenegrini/veronatao/internal/mail"
 	"github.com/davidenegrini/veronatao/internal/store"
 )
 
@@ -52,7 +53,8 @@ func (s *Server) stats(w http.ResponseWriter, r *http.Request) {
 // ---------- Amministrazione ----------
 
 var settingKeys = []string{"header", "doc_title", "template_code", "footer_text", "session_minutes", "max_daily_quarters",
-	"weekly_variation_pct", "lost_days", "due_days", "backup_warn_days", "backup_keep", "backup_dir", "port"}
+	"weekly_variation_pct", "lost_days", "due_days", "backup_warn_days", "backup_keep", "backup_dir", "port",
+	"smtp_host", "smtp_port", "smtp_user", "smtp_from", "smtp_from_name", "email_subject", "email_body"}
 
 func (s *Server) adminPage(w http.ResponseWriter, r *http.Request) {
 	data := map[string]any{}
@@ -61,11 +63,12 @@ func (s *Server) adminPage(w http.ResponseWriter, r *http.Request) {
 	data["Indications"], _ = s.Store.Indications(false)
 	data["EventTypes"], _ = s.Store.EventTypes(false)
 	set := map[string]string{}
-	for _, k := range append(settingKeys, "print_ttr", "lan_enabled", "last_backup_at", "last_verify_at") {
+	for _, k := range append(append([]string{}, settingKeys...), "print_ttr", "lan_enabled", "email_enabled", "last_backup_at", "last_verify_at") {
 		set[k] = s.Store.Setting(k)
 	}
 	data["Set"] = set
 	data["HasPassphrase"] = s.Store.Setting("backup_passphrase") != ""
+	data["HasSMTPPassword"] = s.Store.Setting("smtp_password") != ""
 	data["BackupDir"] = s.backupDir()
 	data["BackupWarning"] = s.backupWarning()
 	data["DataDir"] = s.DataDir
@@ -166,7 +169,7 @@ func (s *Server) adminEventTypeSave(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) adminSettings(w http.ResponseWriter, r *http.Request) {
 	numeric := map[string][2]int{"session_minutes": {1, 480}, "max_daily_quarters": {0, 80}, "weekly_variation_pct": {0, 1000},
-		"lost_days": {1, 3650}, "due_days": {0, 365}, "backup_warn_days": {1, 365}, "backup_keep": {1, 3650}, "port": {1024, 65535}}
+		"lost_days": {1, 3650}, "due_days": {0, 365}, "backup_warn_days": {1, 365}, "backup_keep": {1, 3650}, "port": {1024, 65535}, "smtp_port": {1, 65535}}
 	var changed []string
 	set := func(k, v string) error {
 		if s.Store.Setting(k) == v {
@@ -190,7 +193,7 @@ func (s *Server) adminSettings(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if err == nil {
-		for _, k := range []string{"print_ttr", "lan_enabled"} {
+		for _, k := range []string{"print_ttr", "lan_enabled", "email_enabled"} {
 			v := "0"
 			if r.FormValue(k) == "1" {
 				v = "1"
@@ -209,8 +212,22 @@ func (s *Server) adminSettings(w http.ResponseWriter, r *http.Request) {
 			changed = append(changed, "backup_passphrase")
 		}
 	}
+	if pass := strings.TrimSpace(r.FormValue("smtp_password")); err == nil && pass != "" {
+		if err = s.Store.SetSetting("smtp_password", pass); err == nil {
+			changed = append(changed, "smtp_password")
+		}
+	}
+	if err == nil && s.emailEnabled() {
+		if verr := s.mailConfig().Validate(); verr != nil {
+			_ = s.Store.SetSetting("email_enabled", "0")
+			err = fmt.Errorf("invio per email non attivato: %s", verr)
+		} else if s.Store.Setting("email_subject") == "" || s.Store.Setting("email_body") == "" {
+			_ = s.Store.SetSetting("email_enabled", "0")
+			err = errors.New("invio per email non attivato: oggetto e testo del messaggio sono obbligatori")
+		}
+	}
 	if len(changed) > 0 {
-		// Nel registro finiscono i nomi delle voci modificate, mai la passphrase.
+		// Nel registro finiscono i nomi delle voci modificate, mai passphrase o password.
 		s.Store.Audit(actor(r), "update", "settings", 0, 0, strings.Join(changed, ", "))
 	}
 	s.done(w, r, err, "Impostazioni salvate. Le modifiche a porta e accesso dalla rete locale hanno effetto al prossimo avvio.", "/admin")
@@ -338,7 +355,7 @@ func (s *Server) inspect(data []byte, pass string) ([]byte, string, error) {
 		return nil, "", errors.New("il backup non contiene un archivio VeronaTAO valido")
 	}
 	_ = db.QueryRow("PRAGMA user_version").Scan(&version)
-	if version > 1 {
+	if version > store.SchemaVersion {
 		return nil, "", errors.New("il backup proviene da una versione più recente di VeronaTAO")
 	}
 	return plain, fmt.Sprintf("%d pazienti, %d controlli, ultima attività registrata: %s", patients, controls, lastAudit.String), nil
@@ -516,4 +533,16 @@ func (s *Server) backupRestore(w http.ResponseWriter, r *http.Request) {
 	if s.Shutdown != nil {
 		go func() { time.Sleep(500 * time.Millisecond); s.Shutdown() }()
 	}
+}
+
+// adminEmailTest invia un messaggio di prova, senza alcun dato di pazienti,
+// per verificare la configurazione del server di posta.
+func (s *Server) adminEmailTest(w http.ResponseWriter, r *http.Request) {
+	to := strings.TrimSpace(r.FormValue("to"))
+	err := mail.Send(s.mailConfig(), mail.Message{To: to, Subject: "Prova di invio da VeronaTAO",
+		Body: "Questo è un messaggio di prova inviato da VeronaTAO per verificare la configurazione del server di posta. Non contiene dati."})
+	if err == nil {
+		s.Store.Audit(actor(r), "email", "settings", 0, 0, "messaggio di prova inviato")
+	}
+	s.done(w, r, err, "Messaggio di prova inviato a "+to+": controlla che sia arrivato.", "/admin")
 }

@@ -9,12 +9,13 @@ del suo responsabile della protezione dei dati.
 
 | Misura | Come è realizzata |
 |---|---|
-| Dati solo in locale | archivio in un file sul computer; nessuna connessione verso Internet, nessuna risorsa esterna, nessuna telemetria |
+| Dati solo in locale | archivio in un file sul computer; nessuna risorsa esterna, nessuna telemetria; nessuna connessione verso Internet, salvo l'invio per email se il titolare lo attiva |
 | Accesso | account personali (gli account condivisi non sono previsti), password di almeno 10 caratteri con hash Argon2id, blocco di 15 minuti dopo 5 tentativi falliti, scadenza della sessione per inattività (20 minuti, configurabile) |
 | Tracciabilità | registro di sola aggiunta: accessi riusciti e falliti, consultazione delle schede, inserimenti, annullamenti, stampe, estrazioni, backup, ripristini, reimpostazioni di password |
 | Integrità | nessuna cancellazione fisica dei dati clinici: le voci si annullano con motivazione; i documenti stampati sono conservati con impronta SHA-256 |
 | Disponibilità | backup automatico giornaliero cifrato, verifica del backup, ripristino guidato |
 | Rete locale | se attivata, connessione HTTPS; di norma il programma risponde solo al computer su cui gira |
+| Invio per email | facoltativo: PDF cifrato AES-256 con password per paziente, connessione al server di posta sempre cifrata, ogni tentativo annotato |
 | Diritti degli interessati | esportazione completa dei dati di un paziente (scheda → Cartella → Esporta), estrazione pseudonimizzata |
 
 ## Minimizzazione: che cosa non viene raccolto, e perché
@@ -50,6 +51,8 @@ Se il disco non può essere cifrato, il rischio va valutato e documentato dal ti
 - [ ] Prima prova di ripristino eseguita e registrata
 - [ ] Se si usa la rete locale: rete dello studio protetta, firewall limitato alle reti
       private, VeronaTAO mai raggiungibile da Internet
+- [ ] Se si usa l'invio per email: accordo con il fornitore di posta, informativa aggiornata,
+      prova di invio eseguita, modalità di consegna della password stabilita
 - [ ] Registro dei trattamenti del titolare aggiornato
 
 ## Backup e prova di ripristino
@@ -70,6 +73,48 @@ Modulo da compilare e conservare:
 | Data | Eseguita da | File verificato | Esito (pazienti, controlli) | Ripristino completo? | Note |
 |---|---|---|---|---|---|
 | | | | | | |
+
+## Invio dello schema per email (facoltativo)
+
+È l'unica funzione con cui dati dei pazienti lasciano il computer. È spenta finché un
+amministratore non la configura e la attiva: la decisione e le sue conseguenze sono del
+titolare.
+
+Che cosa fa il programma:
+
+- allega lo schema come PDF cifrato con AES a 256 bit; senza password il contenuto non è
+  leggibile né dal fornitore di posta né da chi intercettasse o ricevesse per errore il
+  messaggio;
+- usa una password diversa per ogni paziente, generata a caso, mai inviata per email;
+- rifiuta l'invio se la connessione al server di posta non è cifrata;
+- non mette dati del paziente né nell'oggetto né nel testo, che sono scritti dallo studio;
+- annota ogni tentativo (destinatario, esito, utente) nella cartella e nel registro.
+
+Che cosa resta da valutare e fare:
+
+- **Che cosa vede comunque il fornitore di posta.** L'indirizzo del paziente, quello dello
+  studio, data e ora: cioè che quella persona è in cura presso quel medico. Il contenuto
+  clinico resta cifrato.
+- **Fornitore di posta come responsabile del trattamento.** Il fornitore tratta dati per
+  conto del titolare e serve un accordo ai sensi dell'art. 28. Un account Gmail personale e
+  gratuito, di norma, non lo offre: è preferibile una casella professionale con contratto
+  adeguato (ad esempio quella dell'ordine, dell'azienda sanitaria o un servizio a pagamento
+  con accordo sul trattamento dei dati). Se il fornitore è fuori dall'Unione europea si
+  applicano anche le regole sui trasferimenti.
+- **Richiesta del paziente.** Invia per email solo a chi lo ha chiesto, a un indirizzo
+  indicato da lui, e tienine traccia; aggiorna l'informativa.
+- **Consegna della password.** Di persona o per telefono, mai nello stesso canale. Chi ha
+  accesso alla casella del paziente e conosce la password legge lo schema.
+- **Indirizzo sbagliato.** Un errore di battitura manda il messaggio a un estraneo: il PDF
+  resta illeggibile, ma l'estraneo viene a sapere che esiste un rapporto di cura. Verifica
+  l'indirizzo con il paziente.
+- **Copia nella posta inviata.** Il fornitore può conservare il messaggio (cifrato) nella
+  cartella della posta inviata: tienine conto per la conservazione.
+- **Dove sono custodite le password.** La password del server di posta e le password dei PDF
+  sono salvate nell'archivio, quindi protette dalla cifratura del disco e dei backup. Per
+  Gmail usa una «password per le app» dedicata, revocabile, mai quella dell'account.
+- **Lo schema cartaceo resta il riferimento.** L'email è una copia di comodo: se non arriva,
+  il paziente deve avere comunque in mano il foglio.
 
 ## Conservazione e cancellazione
 

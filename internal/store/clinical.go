@@ -26,6 +26,10 @@ type Patient struct {
 	ExternalCode string
 	Notes        string
 	Status       string
+	// EmailAuto: a ogni stampa lo schema viene anche inviato per email.
+	EmailAuto bool
+	// PDFPassword protegge i PDF inviati per email a questo paziente.
+	PDFPassword string
 }
 
 func (p Patient) FullName() string { return p.LastName + " " + p.FirstName }
@@ -44,11 +48,11 @@ var StatusOrder = []string{"active", "suspended", "transferred", "deceased", "lo
 
 func (p Patient) StatusLabel() string { return StatusLabels[p.Status] }
 
-const patientCols = "id, last_name, first_name, birth_date, sex, fiscal_code, phone, email, address, external_code, notes, status"
+const patientCols = "id, last_name, first_name, birth_date, sex, fiscal_code, phone, email, address, external_code, notes, status, email_auto, pdf_password"
 
 func scanPatient(r interface{ Scan(...any) error }) (Patient, error) {
 	var p Patient
-	err := r.Scan(&p.ID, &p.LastName, &p.FirstName, &p.BirthDate, &p.Sex, &p.FiscalCode, &p.Phone, &p.Email, &p.Address, &p.ExternalCode, &p.Notes, &p.Status)
+	err := r.Scan(&p.ID, &p.LastName, &p.FirstName, &p.BirthDate, &p.Sex, &p.FiscalCode, &p.Phone, &p.Email, &p.Address, &p.ExternalCode, &p.Notes, &p.Status, &p.EmailAuto, &p.PDFPassword)
 	return p, err
 }
 
@@ -60,18 +64,18 @@ func (s *Store) SavePatient(a Actor, p Patient) (int64, error) {
 	id := p.ID
 	err := s.tx(func(tx *sql.Tx) error {
 		if p.ID == 0 {
-			res, err := tx.Exec(`INSERT INTO patients (last_name, first_name, birth_date, sex, fiscal_code, phone, email, address, external_code, notes, created_by, created_at, updated_at)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-				p.LastName, p.FirstName, p.BirthDate, p.Sex, p.FiscalCode, p.Phone, p.Email, p.Address, p.ExternalCode, p.Notes, a.UserID, Now(), Now())
+			res, err := tx.Exec(`INSERT INTO patients (last_name, first_name, birth_date, sex, fiscal_code, phone, email, address, external_code, notes, email_auto, created_by, created_at, updated_at)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				p.LastName, p.FirstName, p.BirthDate, p.Sex, p.FiscalCode, p.Phone, p.Email, p.Address, p.ExternalCode, p.Notes, p.EmailAuto, a.UserID, Now(), Now())
 			if err != nil {
 				return err
 			}
 			id, _ = res.LastInsertId()
 			return audit(tx, a, "create", "patient", id, id, "")
 		}
-		if _, err := tx.Exec(`UPDATE patients SET last_name = ?, first_name = ?, birth_date = ?, sex = ?, fiscal_code = ?, phone = ?, email = ?, address = ?, external_code = ?, notes = ?, updated_at = ?
+		if _, err := tx.Exec(`UPDATE patients SET last_name = ?, first_name = ?, birth_date = ?, sex = ?, fiscal_code = ?, phone = ?, email = ?, address = ?, external_code = ?, notes = ?, email_auto = ?, updated_at = ?
 			WHERE id = ? AND deleted_at = ''`,
-			p.LastName, p.FirstName, p.BirthDate, p.Sex, p.FiscalCode, p.Phone, p.Email, p.Address, p.ExternalCode, p.Notes, Now(), p.ID); err != nil {
+			p.LastName, p.FirstName, p.BirthDate, p.Sex, p.FiscalCode, p.Phone, p.Email, p.Address, p.ExternalCode, p.Notes, p.EmailAuto, Now(), p.ID); err != nil {
 			return err
 		}
 		return audit(tx, a, "update", "patient", p.ID, p.ID, "anagrafica")
@@ -897,4 +901,66 @@ func (s *Store) HeparinOngoing(today domain.Date) map[int64]bool {
 		}
 	}
 	return out
+}
+
+// ---------- Invio per email ----------
+
+// SetPDFPassword imposta la password che protegge i PDF inviati al paziente.
+// La password non finisce nel registro delle attività.
+func (s *Store) SetPDFPassword(a Actor, patientID int64, password string) error {
+	return s.tx(func(tx *sql.Tx) error {
+		if _, err := tx.Exec("UPDATE patients SET pdf_password = ?, updated_at = ? WHERE id = ?", password, Now(), patientID); err != nil {
+			return err
+		}
+		return audit(tx, a, "update", "patient", patientID, patientID, "password dei PDF inviati per email")
+	})
+}
+
+type EmailSend struct {
+	DocumentID int64
+	Recipient  string
+	OK         bool
+	Error      string
+	Username   string
+	CreatedAt  string
+}
+
+// LogEmailSend annota un tentativo di invio, riuscito o fallito.
+func (s *Store) LogEmailSend(a Actor, patientID, documentID int64, recipient string, sendErr error) {
+	msg, details := "", "documento "+fmt.Sprint(documentID)+" inviato a "+recipient
+	if sendErr != nil {
+		msg = sendErr.Error()
+		details = "invio del documento " + fmt.Sprint(documentID) + " a " + recipient + " non riuscito"
+	}
+	_ = s.tx(func(tx *sql.Tx) error {
+		if _, err := tx.Exec("INSERT INTO email_sends (patient_id, document_id, recipient, ok, error, user_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+			patientID, documentID, recipient, sendErr == nil, msg, a.UserID, Now()); err != nil {
+			return err
+		}
+		return audit(tx, a, "email", "document", documentID, patientID, details)
+	})
+}
+
+func (s *Store) EmailSends(patientID int64) ([]EmailSend, error) {
+	rows, err := s.DB.Query(`SELECT e.document_id, e.recipient, e.ok, e.error, u.username, e.created_at
+		FROM email_sends e JOIN users u ON u.id = e.user_id WHERE e.patient_id = ? ORDER BY e.id DESC LIMIT 50`, patientID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []EmailSend
+	for rows.Next() {
+		var e EmailSend
+		if err := rows.Scan(&e.DocumentID, &e.Recipient, &e.OK, &e.Error, &e.Username, &e.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
+// LastPrinted restituisce l'ultimo documento stampato per un controllo.
+func (s *Store) LastPrinted(controlID int64) (id int64, err error) {
+	err = s.DB.QueryRow("SELECT id FROM printed_documents WHERE control_id = ? ORDER BY id DESC LIMIT 1", controlID).Scan(&id)
+	return
 }

@@ -13,7 +13,8 @@ Non vengono accolte modifiche che introducano:
 - testi informativi o consigli per il paziente forniti dal software;
 - avvisi che raccomandino un'azione clinica;
 - affermazioni di conformità ai requisiti FCSA o di marcatura CE;
-- connessioni a servizi esterni, telemetria, risorse caricate da Internet.
+- connessioni a servizi esterni, telemetria, risorse caricate da Internet (unica eccezione
+  ammessa: l'invio per email tramite il server SMTP configurato dallo studio).
 
 Una modifica di questo tipo trasformerebbe il software in un dispositivo medico o ne
 tradirebbe l'impostazione di tutela dei dati.

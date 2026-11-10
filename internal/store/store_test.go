@@ -3,6 +3,7 @@
 package store
 
 import (
+	"database/sql"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -325,5 +326,45 @@ func TestStatsAndExport(t *testing.T) {
 	f.s.ExportControlsCSV(&sb, false)
 	if !strings.Contains(sb.String(), "ROSSI") {
 		t.Error("estrazione nominativa senza nome")
+	}
+}
+
+// Un archivio creato dalla versione precedente viene aggiornato senza
+// perdere dati.
+func TestMigrationFromV1(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "v1.db")
+	s, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Close()
+	// Si ricostruisce un archivio alla versione 1 con un paziente.
+	old := filepath.Join(t.TempDir(), "old.db")
+	db, err := sql.Open("sqlite", "file:"+old)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(schemaSQL + `; PRAGMA user_version = 1;
+		INSERT INTO users (username, full_name, password_hash, role, created_at) VALUES ('u', 'U', 'x', 'admin', '2026-01-01 00:00:00');
+		INSERT INTO patients (last_name, first_name, birth_date, created_by, created_at, updated_at) VALUES ('BIANCHI', 'LUCA', '1950-01-01', 1, 'x', 'x');`); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+	s, err = Open(old)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	p, err := s.Patient(1)
+	if err != nil || p.LastName != "BIANCHI" || p.EmailAuto || p.PDFPassword != "" {
+		t.Fatalf("paziente dopo l'aggiornamento: %+v %v", p, err)
+	}
+	if s.Setting("smtp_port") != "587" || s.Setting("email_enabled") != "0" {
+		t.Error("impostazioni di posta non create, o invio attivo di default")
+	}
+	var v int
+	s.DB.QueryRow("PRAGMA user_version").Scan(&v)
+	if v != SchemaVersion {
+		t.Errorf("versione dello schema: %d", v)
 	}
 }

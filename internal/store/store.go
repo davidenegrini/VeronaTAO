@@ -21,7 +21,15 @@ import (
 //go:embed schema.sql
 var schemaSQL string
 
-const schemaVersion = 1
+//go:embed migrate_v2.sql
+var migrateV2 string
+
+// migrations[i] porta lo schema dalla versione i+1 alla i+2.
+var migrations = []string{migrateV2}
+
+// SchemaVersion è la versione dello schema prodotta da questa versione del
+// programma.
+const SchemaVersion = 1 + 1
 
 // TS è il formato dei timestamp tecnici (non delle date cliniche).
 const TS = "2006-01-02 15:04:05"
@@ -46,25 +54,29 @@ func Open(path string) (*Store, error) {
 		db.Close()
 		return nil, err
 	}
-	switch {
-	case v == 0:
-		tx, err := db.Begin()
-		if err != nil {
-			return nil, err
-		}
-		defer tx.Rollback()
-		if _, err := tx.Exec(schemaSQL); err != nil {
-			return nil, fmt.Errorf("creazione schema: %w", err)
-		}
-		if _, err := tx.Exec(fmt.Sprintf("PRAGMA user_version = %d", schemaVersion)); err != nil {
-			return nil, err
-		}
-		if err := tx.Commit(); err != nil {
-			return nil, err
-		}
-	case v > schemaVersion:
+	if v > SchemaVersion {
 		db.Close()
 		return nil, fmt.Errorf("l'archivio è stato creato da una versione più recente di VeronaTAO (schema %d)", v)
+	}
+	// Ogni passo di aggiornamento è applicato in una transazione propria.
+	steps := append([]string{schemaSQL}, migrations...)
+	for ; v < SchemaVersion; v++ {
+		tx, err := db.Begin()
+		if err != nil {
+			db.Close()
+			return nil, err
+		}
+		if _, err = tx.Exec(steps[v]); err == nil {
+			_, err = tx.Exec(fmt.Sprintf("PRAGMA user_version = %d", v+1))
+		}
+		if err == nil {
+			err = tx.Commit()
+		}
+		if err != nil {
+			tx.Rollback()
+			db.Close()
+			return nil, fmt.Errorf("aggiornamento dello schema alla versione %d: %w", v+1, err)
+		}
 	}
 	return s, nil
 }

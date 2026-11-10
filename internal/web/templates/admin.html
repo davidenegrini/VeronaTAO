@@ -83,7 +83,27 @@
     <label>Ripeti la passphrase <input type="password" name="backup_passphrase2" minlength="10" autocomplete="new-password"></label>
     <label class="check wide"><input type="checkbox" name="lan_enabled" value="1" {{if eq .Set.lan_enabled "1"}}checked{{end}}> Consenti l'accesso dagli altri computer della rete locale (connessione cifrata HTTPS con certificato locale; ha effetto al prossimo avvio)</label>
     <label>Porta <input type="number" name="port" value="{{.Set.port}}" min="1024" max="65535" required></label>
+    <h3 class="wide">Invio dello schema per email (facoltativo)</h3>
+    <p class="muted wide">Lo schema viene allegato come PDF cifrato (AES a 256 bit) con una password diversa per ogni paziente. Il messaggio passa per il server di posta indicato qui: è l'unica funzione che usa Internet. Con Gmail: server <span class="mono">smtp.gmail.com</span>, porta <span class="mono">587</span>, utente il proprio indirizzo e, come password, una «password per le app» creata nell'account Google (serve la verifica in due passaggi). Oggetto e testo sono scritti dallo studio e non devono contenere dati del paziente.</p>
+    <label class="check wide"><input type="checkbox" name="email_enabled" value="1" {{if eq .Set.email_enabled "1"}}checked{{end}}> Attiva l'invio per email</label>
+    <label>Server SMTP <input name="smtp_host" value="{{.Set.smtp_host}}" maxlength="120" placeholder="smtp.gmail.com"></label>
+    <label>Porta (587 con STARTTLS, 465 con TLS diretto) <input type="number" name="smtp_port" value="{{.Set.smtp_port}}" min="1" max="65535" required></label>
+    <label>Utente <input name="smtp_user" value="{{.Set.smtp_user}}" maxlength="120" autocomplete="off"></label>
+    <label>Password{{if .HasSMTPPassword}} (già impostata: lasciare vuoto per non cambiarla){{end}} <input type="password" name="smtp_password" maxlength="200" autocomplete="new-password"></label>
+    <label>Indirizzo del mittente <input type="email" name="smtp_from" value="{{.Set.smtp_from}}" maxlength="120"></label>
+    <label>Nome del mittente <input name="smtp_from_name" value="{{.Set.smtp_from_name}}" maxlength="80"></label>
+    <label class="wide">Oggetto del messaggio <input name="email_subject" value="{{.Set.email_subject}}" maxlength="120"></label>
+    <label class="wide">Testo del messaggio <textarea name="email_body" rows="3" maxlength="1000">{{.Set.email_body}}</textarea></label>
     <div class="wide actions"><button class="primary">Salva le impostazioni</button></div>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Prova dell'invio per email</h2>
+  <p class="muted">Invia un messaggio di prova, senza dati di pazienti, con le impostazioni salvate.</p>
+  <form method="post" action="/admin/email/test" class="line"><input type="hidden" name="csrf" value="{{.CSRF}}">
+    <label>Destinatario <input type="email" name="to" required maxlength="120"></label>
+    <button>Invia messaggio di prova</button>
   </form>
 </section>
 
