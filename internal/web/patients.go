@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/davidenegrini/veronatao/internal/domain"
+	"github.com/davidenegrini/veronatao/internal/mail"
 	"github.com/davidenegrini/veronatao/internal/pdf"
 	"github.com/davidenegrini/veronatao/internal/store"
 )
@@ -86,7 +87,7 @@ func (s *Server) patientForm(w http.ResponseWriter, r *http.Request) {
 func (s *Server) patientSave(w http.ResponseWriter, r *http.Request) {
 	f := func(k string) string { return strings.TrimSpace(r.FormValue(k)) }
 	p := store.Patient{ID: pathID(r, "id"), LastName: strings.ToUpper(f("last_name")), FirstName: strings.ToUpper(f("first_name")), Sex: f("sex"),
-		FiscalCode: strings.ToUpper(f("fiscal_code")), Phone: f("phone"), Email: f("email"), Address: f("address"), ExternalCode: f("external_code"), Notes: f("notes")}
+		FiscalCode: strings.ToUpper(f("fiscal_code")), Phone: f("phone"), Email: f("email"), Address: f("address"), ExternalCode: f("external_code"), Notes: f("notes"), EmailAuto: r.FormValue("email_auto") == "1"}
 	var err error
 	p.BirthDate, err = domain.ParseDate(f("birth_date"))
 	switch {
@@ -98,6 +99,10 @@ func (s *Server) patientSave(w http.ResponseWriter, r *http.Request) {
 		err = errors.New("cognome e nome sono obbligatori")
 	case p.Sex != "" && p.Sex != "M" && p.Sex != "F":
 		err = errors.New("sesso non valido")
+	case p.Email != "" && !mail.ValidAddress(p.Email):
+		err = errors.New("indirizzo email non valido")
+	case p.EmailAuto && p.Email == "":
+		err = errors.New("per l'invio automatico per email serve l'indirizzo del paziente")
 	}
 	if err != nil {
 		s.render(w, r, "patient_form.html", "Anagrafica", map[string]any{"P": p, "Error": err.Error()})
@@ -526,7 +531,7 @@ func (s *Server) controlPage(w http.ResponseWriter, r *http.Request) {
 	}
 	data := map[string]any{
 		"PC": pc, "C": c, "Weeks": domain.CalendarWeeks(days, c.NextDate), "Week": c.Week, "DayCount": len(days),
-		"IsLast": len(pc.Controls) > 0 && pc.Controls[0].ID == c.ID,
+		"IsLast": len(pc.Controls) > 0 && pc.Controls[0].ID == c.ID, "EmailEnabled": s.emailEnabled(),
 	}
 	if c.HasINR {
 		data["Pos"] = domain.PositionOf(c.INR, c.Date, pc.Targets)
@@ -543,15 +548,33 @@ func (s *Server) controlPrint(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, errNotFound)
 		return
 	}
-	pc, err := s.loadPatient(c.PatientID)
+	id, pc, err := s.printDocument(r, c)
 	if err != nil {
 		s.fail(w, err)
 		return
 	}
+	// Invio automatico, se il paziente lo ha chiesto e la posta è configurata.
+	// Un invio non riuscito non blocca la stampa: l'esito compare nella scheda.
+	if pc.P.EmailAuto && s.emailEnabled() {
+		if err := s.sendDocument(r, pc.P, id); err != nil {
+			s.flashErr(r, fmt.Errorf("schema stampato, ma invio per email non riuscito: %s", userMessage(err)))
+		} else {
+			s.flash(r, "Schema stampato e inviato per email a "+pc.P.Email+".")
+		}
+	}
+	http.Redirect(w, r, fmt.Sprintf("/documents/%d", id), http.StatusSeeOther)
+}
+
+// printDocument genera lo schema per il paziente, lo conserva con la sua
+// impronta e ne restituisce l'identificativo.
+func (s *Server) printDocument(r *http.Request, c store.Control) (int64, *patientContext, error) {
+	pc, err := s.loadPatient(c.PatientID)
+	if err != nil {
+		return 0, nil, err
+	}
 	days, err := s.Store.PlanDays(c.ID)
 	if err != nil || len(days) == 0 {
-		s.fail(w, errNotFound)
-		return
+		return 0, nil, errNotFound
 	}
 	sch := pdf.Schedule{
 		HeaderLines:  strings.Split(strings.ReplaceAll(s.Store.Setting("header"), "\r", ""), "\n"),
@@ -603,17 +626,80 @@ func (s *Server) controlPrint(w http.ResponseWriter, r *http.Request) {
 	}
 	doc, err := pdf.Render(sch)
 	if err != nil {
-		s.fail(w, err)
-		return
+		return 0, nil, err
 	}
 	sum := sha256.Sum256(doc)
 	id, err := s.Store.SavePrinted(actor(r), store.Printed{PatientID: c.PatientID, ControlID: c.ID, SHA256: hex.EncodeToString(sum[:]),
 		PeriodFrom: days[0].Date, PeriodTo: days[len(days)-1].Date, TemplateCode: sch.TemplateCode}, doc)
-	if err != nil {
-		s.fail(w, err)
+	return id, pc, err
+}
+
+// ---------- Invio per email del PDF protetto ----------
+
+func (s *Server) emailEnabled() bool { return s.Store.Setting("email_enabled") == "1" }
+
+func (s *Server) mailConfig() mail.Config {
+	return mail.Config{Host: s.Store.Setting("smtp_host"), Port: s.Store.SettingInt("smtp_port", 587), Username: s.Store.Setting("smtp_user"),
+		Password: s.Store.Setting("smtp_password"), From: s.Store.Setting("smtp_from"), FromName: s.Store.Setting("smtp_from_name")}
+}
+
+// sendDocument invia al paziente un documento già stampato, come PDF cifrato
+// con la password del paziente. Il messaggio non contiene dati clinici: né
+// l'oggetto né il testo nominano il paziente o la terapia. Ogni tentativo è
+// annotato.
+func (s *Server) sendDocument(r *http.Request, p store.Patient, documentID int64) error {
+	if !s.emailEnabled() {
+		return errors.New("l'invio per email non è attivo: lo configura un amministratore")
+	}
+	if !mail.ValidAddress(p.Email) {
+		return errors.New("il paziente non ha un indirizzo email valido in anagrafica")
+	}
+	pid, doc, err := s.Store.PrintedPDF(documentID)
+	if err != nil || pid != p.ID {
+		return errNotFound
+	}
+	if p.PDFPassword == "" {
+		p.PDFPassword = TempPassword()
+		if err := s.Store.SetPDFPassword(actor(r), p.ID, p.PDFPassword); err != nil {
+			return err
+		}
+	}
+	protected, err := mail.ProtectPDF(doc, p.PDFPassword)
+	if err == nil {
+		err = mail.Send(s.mailConfig(), mail.Message{To: p.Email, Subject: s.Store.Setting("email_subject"), Body: s.Store.Setting("email_body"),
+			AttachmentName: "schema-terapia.pdf", Attachment: protected})
+	}
+	s.Store.LogEmailSend(actor(r), p.ID, documentID, p.Email, err)
+	return err
+}
+
+// controlEmail invia per email lo schema del controllo: l'ultimo documento
+// stampato, oppure uno nuovo se non è ancora stato stampato.
+func (s *Server) controlEmail(w http.ResponseWriter, r *http.Request) {
+	c, err := s.Store.Control(pathID(r, "id"))
+	if err != nil || !c.HasPlan() {
+		s.fail(w, errNotFound)
 		return
 	}
-	http.Redirect(w, r, fmt.Sprintf("/documents/%d", id), http.StatusSeeOther)
+	p, err := s.Store.Patient(c.PatientID)
+	if err != nil {
+		s.fail(w, errNotFound)
+		return
+	}
+	back := fmt.Sprintf("/controls/%d", c.ID)
+	docID, err := s.Store.LastPrinted(c.ID)
+	if err != nil {
+		if docID, _, err = s.printDocument(r, c); err != nil {
+			s.fail(w, err)
+			return
+		}
+	}
+	s.done(w, r, s.sendDocument(r, p, docID), "Schema inviato per email a "+p.Email+" come PDF protetto da password.", back)
+}
+
+func (s *Server) pdfPasswordRenew(w http.ResponseWriter, r *http.Request) {
+	err := s.Store.SetPDFPassword(actor(r), pathID(r, "id"), TempPassword())
+	s.done(w, r, err, "Nuova password dei PDF generata: va consegnata di persona al paziente. I PDF già inviati restano apribili con la password precedente.", recordURL(r))
 }
 
 func mustTreatments(s *Server, patientID int64) []store.Treatment {
@@ -669,6 +755,8 @@ func (s *Server) recordPage(w http.ResponseWriter, r *http.Request) {
 	data["EventTypes"], _ = s.Store.EventTypes(true)
 	data["Printed"], _ = s.Store.PrintedList(id)
 	data["Audit"], _ = s.Store.AuditList(id, "", 40)
+	data["EmailSends"], _ = s.Store.EmailSends(id)
+	data["EmailEnabled"] = s.emailEnabled()
 	s.render(w, r, "record.html", pc.P.FullName(), data)
 }
 

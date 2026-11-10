@@ -11,6 +11,7 @@
   <label>Codice esterno (laboratorio, cartella; facoltativo) <input name="external_code" value="{{.P.ExternalCode}}" maxlength="40"></label>
   <label>Telefono <input name="phone" value="{{.P.Phone}}" maxlength="40"></label>
   <label>Email <input type="email" name="email" value="{{.P.Email}}" maxlength="120"></label>
+  <label class="check wide"><input type="checkbox" name="email_auto" value="1" {{if .P.EmailAuto}}checked{{end}}> Il paziente ha chiesto di ricevere lo schema anche per email: invialo a ogni stampa, come PDF protetto da password (richiede l'invio per email attivato dall'amministratore)</label>
   <label class="wide">Indirizzo <input name="address" value="{{.P.Address}}" maxlength="200"></label>
   <label class="wide">Comorbidità e note cliniche (testo libero) <textarea name="notes" rows="4" maxlength="4000">{{.P.Notes}}</textarea></label>
   <div class="wide actions"><button class="primary">Salva</button> <a class="button" href="{{if .P.ID}}/patients/{{.P.ID}}{{else}}/patients{{end}}">Annulla</a></div>

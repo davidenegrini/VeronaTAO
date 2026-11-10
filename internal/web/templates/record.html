@@ -133,6 +133,23 @@
 </section>
 
 <section class="card">
+  <h2>Invio dello schema per email</h2>
+  {{if not .EmailEnabled}}<p class="muted">L'invio per email non è attivo. Lo configura un amministratore in Amministrazione → Invio per email.</p>{{end}}
+  <dl>
+    <div><dt>Indirizzo del paziente</dt><dd>{{or .PC.P.Email "non indicato"}}</dd></div>
+    <div><dt>Invio automatico a ogni stampa</dt><dd>{{if .PC.P.EmailAuto}}sì{{else}}no{{end}}</dd></div>
+    <div class="wide"><dt>Password per aprire i PDF (da consegnare di persona, mai per email)</dt><dd class="mono">{{or .PC.P.PDFPassword "sarà generata al primo invio"}}</dd></div>
+  </dl>
+  <div class="line">
+    <a class="button" href="/patients/{{$pid}}/edit">Modifica indirizzo e invio automatico</a>
+    <form method="post" action="/patients/{{$pid}}/pdf-password"><input type="hidden" name="csrf" value="{{.CSRF}}"><button>Genera {{if .PC.P.PDFPassword}}una nuova{{else}}la{{end}} password</button></form>
+  </div>
+  {{if .EmailSends}}<table class="list small"><thead><tr><th>Quando</th><th>Destinatario</th><th>Documento</th><th>Esito</th><th>Utente</th></tr></thead>
+  <tbody>{{range .EmailSends}}<tr><td>{{.CreatedAt}}</td><td>{{.Recipient}}</td><td><a href="/documents/{{.DocumentID}}" target="_blank">n. {{.DocumentID}}</a></td>
+    <td>{{if .OK}}<span class="pos in">inviato</span>{{else}}<span class="pos above">non riuscito</span> {{.Error}}{{end}}</td><td>{{.Username}}</td></tr>{{end}}</tbody></table>{{end}}
+</section>
+
+<section class="card">
   <h2>Dati e registro</h2>
   <form method="post" action="/patients/{{$pid}}/export"><input type="hidden" name="csrf" value="{{.CSRF}}"><button>Esporta tutti i dati del paziente (JSON)</button></form>
   <details><summary>Ultime attività su questo paziente</summary>

@@ -26,7 +26,8 @@ description:
       e il pittogramma delle compresse; calcola indicatori retrospettivi come il tempo in
       range terapeutico e gli eventi per anni-paziente. È un unico programma senza
       dipendenze: i dati restano sul computer dello studio, non usa servizi cloud e
-      funziona senza connessione a Internet. Non è un dispositivo medico: non calcola né
+      funziona senza connessione a Internet; l'invio dello schema per email, come PDF
+      cifrato, è facoltativo e richiede un server di posta scelto dallo studio. Non è un dispositivo medico: non calcola né
       suggerisce dosaggi, non segnala interazioni o rischi, non è marcato CE e non è
       conforme ai requisiti FCSA per i programmi di gestione della terapia anticoagulante,
       di cui persegue soltanto la compatibilità dei dati e degli indicatori.
@@ -47,7 +48,9 @@ description:
       prints the patient schedule with doses in words and tablet pictograms, and computes
       retrospective indicators such as time in therapeutic range and events per
       patient-years. It is a single self-contained program: data stay on the practice
-      computer, no cloud services are used and no Internet connection is needed. It is
+      computer, no cloud services are used and no Internet connection is needed; sending
+      the schedule by email as an encrypted PDF is optional and uses a mail server chosen
+      by the practice. It is
       not a medical device: it neither computes nor suggests doses, raises no interaction
       or risk alerts, is not CE marked and does not comply with the FCSA requirements for
       anticoagulation management software; it only aims at data and indicator

@@ -137,6 +137,8 @@ func (s *Server) Handler() http.Handler {
 	user("GET /controls/{id}", s.controlPage)
 	user("POST /controls/{id}/print", s.controlPrint)
 	user("POST /controls/{id}/delete", s.controlDelete)
+	user("POST /controls/{id}/email", s.controlEmail)
+	user("POST /patients/{id}/pdf-password", s.pdfPasswordRenew)
 	user("GET /documents/{id}", s.documentGet)
 	user("GET /stats", s.stats)
 	user("POST /stats", s.stats)
@@ -158,6 +160,7 @@ func (s *Server) Handler() http.Handler {
 	admin("POST /admin/backup/verify", s.backupVerify)
 	admin("POST /admin/backup/restore", s.backupRestore)
 	admin("POST /admin/shutdown", s.adminShutdown)
+	admin("POST /admin/email/test", s.adminEmailTest)
 
 	return s.secure(mux)
 }

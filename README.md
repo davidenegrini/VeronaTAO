@@ -19,8 +19,9 @@ da consegnare al paziente, con la dose scritta a parole e il pittogramma delle c
 - **Un solo programma, nessuna dipendenza.** Un eseguibile che contiene tutto: archivio
   (SQLite), interfaccia (si usa dal browser), generatore di PDF. Non serve installare
   database, server web o altro.
-- **I dati restano sul computer.** Nessun servizio cloud, nessuna connessione a Internet,
-  nessuna risorsa caricata dall'esterno. Funziona su una macchina isolata dalla rete.
+- **I dati restano sul computer.** Nessun servizio cloud, nessuna risorsa caricata
+  dall'esterno. Funziona su una macchina isolata dalla rete. L'unica funzione che usa
+  Internet è l'invio dello schema per email, facoltativo e spento finché non lo si configura.
 - **Uso singolo o in rete locale.** Di norma il programma risponde solo al computer su cui
   gira. Attivando l'accesso dalla rete locale, altre postazioni dello studio lo usano dal
   browser, in HTTPS, senza installare nulla.
@@ -33,6 +34,8 @@ da consegnare al paziente, con la dose scritta a parole e il pittogramma delle c
   indicata dal medico.
 - **Stampa per il paziente** in A4: griglia lunedì-domenica, dose a parole, «NIENTE» esplicito
   nei giorni senza compressa, pittogramma leggibile in bianco e nero, giorno del «CONTROLLO».
+- **Invio per email, facoltativo**: lo schema parte come PDF cifrato (AES a 256 bit) con una
+  password diversa per ogni paziente, tramite il server di posta dello studio (anche Gmail).
 - **Verifiche di coerenza dell'inserimento** (dose giornaliera oltre il massimo configurato,
   variazione settimanale oltre la soglia configurata, piano oltre 12 settimane): chiedono una
   conferma, non suggeriscono azioni.
@@ -72,6 +75,26 @@ che ospita l'archivio deve essere acceso. Non esporre mai VeronaTAO su Internet.
 *Amministrazione → Backup e ripristino → Scarica una copia cifrata*, porta il file nell'altra
 sede e lì usa *Ripristina da un file di backup*. **Deve restare in uso una sola copia alla
 volta**: dati inseriti in due copie diverse non possono essere riuniti.
+
+### Inviare lo schema per email
+
+1. *Amministrazione → Impostazioni → Invio dello schema per email*: indica server SMTP,
+   porta, utente, password, mittente, oggetto e testo del messaggio, poi attiva l'invio e
+   provalo con *Invia messaggio di prova*.
+   **Con Gmail**: server `smtp.gmail.com`, porta `587`, utente il proprio indirizzo; come
+   password serve una «password per le app» creata nell'account Google (richiede la verifica
+   in due passaggi), non la password dell'account.
+2. Nell'anagrafica del paziente inserisci l'indirizzo email e, se il paziente lo chiede,
+   spunta l'invio automatico a ogni stampa. In alternativa usa il pulsante *Invia per email*
+   nella pagina del controllo.
+3. La password per aprire il PDF è generata dal programma, una per paziente, e si legge nella
+   *Cartella* del paziente: va consegnata **di persona** (ad esempio scritta sul primo schema
+   cartaceo), mai per email.
+
+La connessione al server di posta è sempre cifrata: se il server non lo consente l'invio viene
+rifiutato. Oggetto e testo del messaggio non devono contenere dati del paziente. Ogni
+tentativo di invio, riuscito o no, è annotato nella cartella e nel registro delle attività.
+Prima di attivare la funzione leggi la sezione dedicata in [COMPLIANCE.md](COMPLIANCE.md).
 
 ### Password dimenticata
 
@@ -115,19 +138,24 @@ Opzioni da riga di comando: `-dati CARTELLA`, `-senza-browser`, `-reimposta-pass
 | `internal/store` | archivio SQLite, schema, registro delle attività, statistiche |
 | `internal/pdf` | schema stampato per il paziente |
 | `internal/backup` | cifratura dei backup (AES-256-GCM, chiave derivata con Argon2id) |
+| `internal/mail` | cifratura del PDF e invio tramite SMTP |
 | `internal/web` | interfaccia: pagine, accessi, amministrazione |
 | `packaging` | script di compilazione e installer Windows (Inno Setup) |
 
 ### Dipendenze
 
 Tutte incorporate nell'eseguibile, nessuna caricata a runtime, tutte con licenze permissive
-compatibili con AGPL-3.0:
+(MIT, BSD, Apache-2.0) compatibili con AGPL-3.0:
 
 | Modulo | Uso | Licenza |
 |---|---|---|
 | `modernc.org/sqlite` (con `libc`, `mathutil`, `memory`) | database SQLite in puro Go | BSD-3-Clause |
 | `github.com/go-pdf/fpdf` | generazione PDF | MIT |
 | `golang.org/x/crypto`, `golang.org/x/sys` | Argon2id, chiamate di sistema | BSD-3-Clause |
+| `github.com/pdfcpu/pdfcpu` | cifratura AES-256 del PDF inviato per email | Apache-2.0 |
+| `golang.org/x/image`, `golang.org/x/text`, `github.com/hhrutter/tiff` | indirette (pdfcpu) | BSD-3-Clause |
+| `github.com/xdg-go/stringprep` | indiretta (pdfcpu) | Apache-2.0 |
+| `go.yaml.in/yaml/v3`, `github.com/clipperhouse/uax29`, `github.com/mattn/go-runewidth` | indirette (pdfcpu) | MIT |
 | `github.com/google/uuid`, `github.com/remyoudompheng/bigfft` | indirette | BSD-3-Clause |
 | `github.com/dustin/go-humanize`, `github.com/mattn/go-isatty`, `github.com/ncruces/go-strftime` | indirette | MIT |
 

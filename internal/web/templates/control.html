@@ -18,6 +18,7 @@
   {{if .C.HasPlan}}
   <div class="actions">
     <form method="post" action="/controls/{{.C.ID}}/print" target="_blank"><input type="hidden" name="csrf" value="{{.CSRF}}"><button class="primary">Stampa schema per il paziente (PDF)</button></form>
+    {{if .EmailEnabled}}<form method="post" action="/controls/{{.C.ID}}/email"><input type="hidden" name="csrf" value="{{.CSRF}}"><button {{if not .PC.P.Email}}disabled title="Manca l'indirizzo email in anagrafica"{{end}}>Invia per email{{if .PC.P.Email}} a {{.PC.P.Email}}{{end}} (PDF protetto)</button></form>{{end}}
     <a class="button" href="/patients/{{.C.PatientID}}">Torna ai controlli</a>
   </div>
   {{template "calendar" dict "Weeks" .Weeks "Week" .Week "Edit" false}}
