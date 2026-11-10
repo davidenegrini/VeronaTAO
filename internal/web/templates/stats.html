@@ -1,0 +1,42 @@
+{{define "content"}}
+<section class="card">
+  <h1>Statistiche</h1>
+  <form method="post" action="/stats" class="line">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <label>Dal <input type="date" name="from" value="{{.From}}" required></label>
+    <label>Al <input type="date" name="to" value="{{.To}}" required></label>
+    <button class="primary">Calcola</button>
+  </form>
+  <p class="muted">Indicatori retrospettivi calcolati sui dati inseriti. Il programma espone i numeri e non li interpreta.</p>
+</section>
+{{with .S}}
+<div class="cols">
+<section class="card">
+  <h2>Qualità del controllo</h2>
+  <dl>
+    <div class="wide"><dt>TTR (Rosendaal), {{.TTRPatients}} pazienti, {{.TTR.Days}} giorni valutati</dt><dd>{{template "ttr" $.TTR}}</dd></div>
+    <div><dt>Controlli nel periodo</dt><dd>{{.Controls}}</dd></div>
+    <div><dt>Misurazioni INR</dt><dd>{{.INRCount}}</dd></div>
+    <div><dt>INR entro il range impostato</dt><dd>{{.InRangePct}} ({{.INRInRange}} su {{.INRWithTarget}})</dd></div>
+    <div><dt>Intervallo medio tra controlli</dt><dd>{{if .IntervalsCount}}{{$.MeanInterval}} giorni{{else}}n.d.{{end}}</dd></div>
+  </dl>
+</section>
+<section class="card">
+  <h2>Eventi per 100 anni-paziente</h2>
+  <dl>
+    <div class="wide"><dt>Tempo di esposizione (giorni coperti dai percorsi nel periodo)</dt><dd>{{.ExposureDays}} giorni = {{$.PatientYears}} anni-paziente</dd></div>
+    <div><dt>Eventi emorragici</dt><dd>{{.Hemorrhagic}} · tasso {{.HemorrhagicRate}}</dd></div>
+    <div><dt>Eventi trombotici</dt><dd>{{.Thrombotic}} · tasso {{.ThromboticRate}}</dd></div>
+    <div><dt>Altri eventi</dt><dd>{{.OtherEvents}}</dd></div>
+    <div><dt>Nuove anagrafiche nel periodo</dt><dd>{{.NewPatients}}</dd></div>
+  </dl>
+</section>
+</div>
+<div class="cols">
+<section class="card"><h2>Pazienti per stato (oggi)</h2>
+  <table class="list"><tbody>{{range .ByStatus}}<tr><td>{{.Label}}</td><td class="num">{{.N}}</td></tr>{{end}}</tbody></table></section>
+<section class="card"><h2>Percorsi attivi nel periodo, per indicazione</h2>
+  <table class="list"><tbody>{{range .ByIndication}}<tr><td>{{.Label}}</td><td class="num">{{.N}}</td></tr>{{else}}<tr><td class="muted">Nessuno.</td></tr>{{end}}</tbody></table></section>
+</div>
+{{end}}
+{{end}}

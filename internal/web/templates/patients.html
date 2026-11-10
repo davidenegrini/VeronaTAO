@@ -1,0 +1,30 @@
+{{define "content"}}
+<section class="card">
+  <form method="post" action="/patients" class="search">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <input type="search" name="q" value="{{.Q}}" placeholder="Cognome, nome, codice o data di nascita" autofocus aria-label="Cerca paziente">
+    <select name="status" aria-label="Stato">
+      <option value="">Tutti gli stati</option>
+      {{range .Statuses}}<option value="{{.}}" {{if eq . $.Status}}selected{{end}}>{{statusLabel .}}</option>{{end}}
+    </select>
+    <button class="primary">Cerca</button>
+    <a class="button" href="/patients/new">Nuovo paziente</a>
+  </form>
+</section>
+<section class="card">
+<table class="list">
+<thead><tr><th>Paziente</th><th>Età</th><th>Indicazione</th><th>Farmaco</th><th class="num">Dose sett. (mg)</th><th>Ultimo INR</th><th>Prossimo controllo</th><th>Stato</th></tr></thead>
+<tbody>
+{{range .Rows}}<tr>
+  <td><a href="/patients/{{.ID}}">{{.FullName}}</a></td>
+  <td>{{.Age}}</td>
+  <td>{{.Indication}}</td>
+  <td>{{.DrugLabel}}</td>
+  <td class="num">{{.WeeklyMg}}</td>
+  <td>{{if not .LastINRDate.IsZero}}{{.LastINR}} <span class="muted">{{.LastINRDate.IT}}</span> {{template "pos" .LastPos}}{{end}}</td>
+  <td>{{.NextDate.IT}}</td>
+  <td>{{.StatusLabel}}</td>
+</tr>{{else}}<tr><td colspan="8" class="muted">Nessun paziente trovato.</td></tr>{{end}}
+</tbody></table>
+</section>
+{{end}}

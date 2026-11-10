@@ -1,0 +1,37 @@
+{{define "content"}}
+{{template "phead" .PC}}
+<section class="card">
+  <h2>Controllo del {{.C.Date.IT}} {{.C.Time}}</h2>
+  <dl class="inline">
+    <div><dt>INR</dt><dd>{{if .C.HasINR}}{{.C.INR}} {{template "pos" .Pos}}{{else}}non inserito{{end}}</dd></div>
+    <div><dt>Sede</dt><dd>{{siteLabel .C.Site}}</dd></div>
+    {{if .C.HasPlan}}
+    <div><dt>Farmaco</dt><dd>{{.C.DrugLabel}}</dd></div>
+    <div><dt>Schema settimanale</dt><dd class="mono">{{.Week}}</dd></div>
+    <div><dt>Dose settimanale</dt><dd>{{.C.WeeklyMg}} mg ({{.C.SourceLabel}})</dd></div>
+    <div><dt>Periodo</dt><dd>{{.DayCount}} giorni, fino al {{.C.PlanEnd.IT}} · totale {{.PeriodMg}} mg</dd></div>
+    {{end}}
+    <div><dt>Prossimo controllo</dt><dd>{{if not .C.NextDate.IsZero}}{{weekdayLong .C.NextDate}} {{.C.NextDate.IT}}{{end}}</dd></div>
+    <div><dt>Registrato da</dt><dd>{{.C.UserName}}</dd></div>
+    {{if .C.Comment}}<div class="wide"><dt>Commento</dt><dd>{{.C.Comment}}</dd></div>{{end}}
+  </dl>
+  {{if .C.HasPlan}}
+  <div class="actions">
+    <form method="post" action="/controls/{{.C.ID}}/print" target="_blank"><input type="hidden" name="csrf" value="{{.CSRF}}"><button class="primary">Stampa schema per il paziente (PDF)</button></form>
+    <a class="button" href="/patients/{{.C.PatientID}}">Torna ai controlli</a>
+  </div>
+  {{template "calendar" dict "Weeks" .Weeks "Week" .Week "Edit" false}}
+  {{else}}<div class="actions"><a class="button" href="/patients/{{.C.PatientID}}">Torna ai controlli</a></div>{{end}}
+</section>
+{{if .IsLast}}
+<section class="card">
+  <details><summary>Annulla questo controllo (correzione di un errore di inserimento)</summary>
+  <p class="muted">Il controllo non viene cancellato: resta nell'archivio marcato come annullato, con la motivazione. Il piano precedente torna in vigore. Poi potrai reinserirlo corretto.</p>
+  <form method="post" action="/controls/{{.C.ID}}/delete" class="line">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <label>Motivazione <input name="reason" required maxlength="200" size="50"></label>
+    <button class="danger">Annulla il controllo</button>
+  </form></details>
+</section>
+{{end}}
+{{end}}

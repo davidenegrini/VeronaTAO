@@ -1,0 +1,73 @@
+publiccodeYmlVersion: "0.4"
+name: VeronaTAO
+url: "https://github.com/davidenegrini/VeronaTAO"
+releaseDate: "2026-11-10"
+softwareVersion: "0.1.0"
+developmentStatus: beta
+softwareType: standalone/desktop
+platforms:
+  - windows
+  - linux
+categories:
+  - healthcare
+intendedAudience:
+  scope:
+    - healthcare
+description:
+  it:
+    shortDescription: >-
+      Registro clinico per la terapia anticoagulante orale: controlli INR, schema
+      posologico deciso dal medico, stampa per il paziente.
+    longDescription: >-
+      VeronaTAO è un registro clinico per la gestione della terapia anticoagulante orale
+      con antagonisti della vitamina K, destinato allo studio del medico di medicina
+      generale e all'ambulatorio. Archivia i controlli INR e lo schema posologico deciso
+      dal medico, giorno per giorno; stampa lo schema per il paziente con la dose a parole
+      e il pittogramma delle compresse; calcola indicatori retrospettivi come il tempo in
+      range terapeutico e gli eventi per anni-paziente. È un unico programma senza
+      dipendenze: i dati restano sul computer dello studio, non usa servizi cloud e
+      funziona senza connessione a Internet. Non è un dispositivo medico: non calcola né
+      suggerisce dosaggi, non segnala interazioni o rischi, non è marcato CE e non è
+      conforme ai requisiti FCSA per i programmi di gestione della terapia anticoagulante,
+      di cui persegue soltanto la compatibilità dei dati e degli indicatori.
+    features:
+      - Registro dei controlli INR e dei piani posologici inseriti dal medico
+      - Stampa dello schema per il paziente con dose a parole e pittogramma
+      - Tempo in range terapeutico con metodo Rosendaal
+      - Dati solo in locale, nessun servizio esterno
+      - Backup cifrati e registro delle attività
+  en:
+    shortDescription: >-
+      Clinical registry for oral anticoagulant therapy: INR checks, physician-entered
+      dosing schedule, printable patient schedule.
+    longDescription: >-
+      VeronaTAO is a clinical registry for managing oral anticoagulant therapy with
+      vitamin K antagonists, aimed at general practitioners and outpatient clinics. It
+      stores INR checks and the day-by-day dosing schedule entered by the physician,
+      prints the patient schedule with doses in words and tablet pictograms, and computes
+      retrospective indicators such as time in therapeutic range and events per
+      patient-years. It is a single self-contained program: data stay on the practice
+      computer, no cloud services are used and no Internet connection is needed. It is
+      not a medical device: it neither computes nor suggests doses, raises no interaction
+      or risk alerts, is not CE marked and does not comply with the FCSA requirements for
+      anticoagulation management software; it only aims at data and indicator
+      compatibility with them.
+    features:
+      - Registry of INR checks and physician-entered dosing plans
+      - Printable patient schedule with doses in words and pictograms
+      - Time in therapeutic range (Rosendaal method)
+      - Local-only data, no external services
+      - Encrypted backups and activity log
+legal:
+  license: AGPL-3.0-or-later
+maintenance:
+  type: community
+  contacts:
+    - name: Davide Negrini
+localisation:
+  localisationReady: false
+  availableLanguages:
+    - it
+dependsOn:
+  open: []
+  proprietary: []

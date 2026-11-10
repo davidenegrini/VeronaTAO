@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Title}} · VeronaTAO</title>
+<link rel="stylesheet" href="/static/app.css">
+<link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+<script src="/static/app.js" defer></script>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/">VeronaTAO</a>
+  {{if .User}}
+  <nav>
+    <a href="/">Inizio</a>
+    <a href="/patients">Pazienti</a>
+    <a href="/stats">Statistiche</a>
+    {{if .User.IsAdmin}}<a href="/admin">Amministrazione</a>{{end}}
+  </nav>
+  <div class="who">
+    <span>{{.User.FullName}} · {{.User.RoleLabel}}</span>
+    <a href="/password">Password</a>
+    <form method="post" action="/logout"><input type="hidden" name="csrf" value="{{.CSRF}}"><button class="link">Esci</button></form>
+  </div>
+  {{end}}
+</header>
+<main>
+{{if .Flash}}<p class="msg ok" role="status">{{.Flash}}</p>{{end}}
+{{if .Error}}<p class="msg err" role="alert">{{.Error}}</p>{{end}}
+{{block "content" .}}{{end}}
+</main>
+<footer class="foot">VeronaTAO {{.Version}} · registro clinico per la terapia anticoagulante orale · non è un dispositivo medico: non calcola né suggerisce dosaggi · software libero AGPL-3.0-or-later</footer>
+</body>
+</html>
+
+{{define "ttr"}}{{if .OK}}<span class="ttr" title="Tempo in range negli ultimi 12 mesi (metodo Rosendaal): sotto / in range / sopra">
+<svg viewBox="0 0 100 10" preserveAspectRatio="none" aria-hidden="true"><rect class="t-below" x="0" y="0" width="{{.Below}}" height="10"/><rect class="t-in" x="{{.Below}}" y="0" width="{{.In}}" height="10"/><rect class="t-above" x="{{add .Below .In}}" y="0" width="{{.Above}}" height="10"/></svg>
+<span class="ttr-n">sotto {{.Below}}% · <b>in range {{.In}}%</b> · sopra {{.Above}}%</span></span>{{else}}<span class="muted">non calcolabile (servono almeno due INR a non più di 56 giorni)</span>{{end}}{{end}}
+
+{{define "pos"}}{{if .Class}}<span class="pos {{.Class}}">{{.Arrow}} {{.Label}}</span>{{end}}{{end}}
+
+{{define "plist"}}
+<table class="list">
+<thead><tr><th>Paziente</th><th>Nato/a il</th><th>Ultimo INR</th><th>Prossimo controllo</th></tr></thead>
+<tbody>
+{{range .}}<tr>
+  <td><a href="/patients/{{.ID}}">{{.FullName}}</a></td>
+  <td>{{.BirthDate.IT}}</td>
+  <td>{{if not .LastINRDate.IsZero}}{{.LastINR}} del {{.LastINRDate.IT}} {{template "pos" .LastPos}}{{else}}<span class="muted">nessuno</span>{{end}}</td>
+  <td>{{.NextDate.IT}}</td>
+</tr>{{end}}
+</tbody></table>
+{{end}}
+
+{{define "phead"}}
+<section class="phead">
+  <div>
+    <h1>{{.P.FullName}} <small>{{.P.BirthDate.IT}} ({{.P.Age}} anni){{if .P.ExternalCode}} · cod. {{.P.ExternalCode}}{{end}}</small></h1>
+    {{if ne .P.Status "active"}}<span class="tag warn">{{.P.StatusLabel}}</span>{{end}}
+  </div>
+  <nav class="tabs">
+    <a href="/patients/{{.P.ID}}">Controlli</a>
+    <a href="/patients/{{.P.ID}}/record">Cartella</a>
+    <a href="/patients/{{.P.ID}}/edit">Anagrafica</a>
+  </nav>
+</section>
+{{end}}
+
+{{define "calendar"}}
+<table class="cal">
+<thead><tr>{{range weekdaysLong}}<th>{{.}}</th>{{end}}</tr></thead>
+<tbody>
+{{range .Weeks}}<tr>
+  {{range .}}
+  {{if .Date.IsZero}}<td class="out"></td>
+  {{else if .Day}}<td class="{{if .Day.DeviatesFromWeek $.Week}}dev{{end}}{{if .Day.Heparin.Present}} hep{{end}}">
+    <div class="cd">{{.Date.DayMonth}}</div>
+    {{if $.Edit}}
+      <label class="q"><input type="number" name="dq_{{.Date}}" value="{{printf "%d" .Day.Quarters}}" min="0" max="80" step="1" required aria-label="Quarti di compressa del {{.Date.IT}}"> <span>{{.Day.Quarters.Words}}</span></label>
+      <details {{if .Day.Heparin.Present}}open{{end}}><summary>Eparina</summary>
+        <input type="text" name="hd_{{.Date}}" value="{{.Day.Heparin.Drug}}" placeholder="farmaco" list="heparins" maxlength="60" aria-label="Eparina: farmaco">
+        <span class="row"><input type="text" name="hv_{{.Date}}" value="{{.Day.Heparin.Dose}}" placeholder="dose" inputmode="decimal" maxlength="10" aria-label="Eparina: dose">
+        <select name="hu_{{.Date}}" aria-label="Eparina: unità"><option value=""></option><option {{if eq .Day.Heparin.Unit "UI"}}selected{{end}}>UI</option><option {{if eq .Day.Heparin.Unit "mg"}}selected{{end}}>mg</option></select></span>
+        <label class="row">volte/die <input type="number" name="ht_{{.Date}}" value="{{if .Day.Heparin.Times}}{{.Day.Heparin.Times}}{{end}}" min="1" max="4"></label>
+      </details>
+    {{else}}
+      <div class="words">{{.Day.Quarters.Words}}</div>
+      <div class="muted">{{printf "%d" .Day.Quarters}} quarti</div>
+      {{if .Day.Heparin.Present}}<div class="heparin">{{.Day.Heparin.Drug}} {{.Day.Heparin.Dose}} {{.Day.Heparin.Unit}} × {{.Day.Heparin.Times}}/die</div>{{end}}
+    {{end}}
+  </td>
+  {{else}}<td class="ctl"><div class="cd">{{.Date.DayMonth}}</div><b>CONTROLLO</b></td>{{end}}
+  {{end}}
+</tr>{{end}}
+</tbody></table>
+{{end}}

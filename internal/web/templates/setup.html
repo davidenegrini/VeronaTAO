@@ -1,0 +1,14 @@
+{{define "content"}}
+<section class="card narrow">
+<h1>Primo avvio</h1>
+<p>Benvenuto in VeronaTAO. Crea il primo utente amministratore. Gli account sono personali: ogni persona che usa il programma deve avere il proprio.</p>
+<form method="post" action="/setup" class="stack">
+  <label>Nome utente <input name="username" value="{{.Username}}" required autofocus autocomplete="username" maxlength="40"></label>
+  <label>Nome e cognome (come comparirà sulle stampe) <input name="full_name" value="{{.FullName}}" required maxlength="80"></label>
+  <label>Password (almeno 10 caratteri) <input type="password" name="password" required minlength="10" autocomplete="new-password"></label>
+  <label>Ripeti la password <input type="password" name="password2" required minlength="10" autocomplete="new-password"></label>
+  <label>Intestazione dello studio per le stampe (più righe, modificabile in seguito) <textarea name="header" rows="3" maxlength="400"></textarea></label>
+  <button class="primary">Crea amministratore ed entra</button>
+</form>
+</section>
+{{end}}
