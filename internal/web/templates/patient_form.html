@@ -1,0 +1,19 @@
+{{define "content"}}
+<section class="card">
+<h1>{{if .P.ID}}Anagrafica di {{.P.FullName}}{{else}}Nuovo paziente{{end}}</h1>
+<form method="post" action="{{if .P.ID}}/patients/{{.P.ID}}/edit{{else}}/patients/new{{end}}" class="grid2">
+  <input type="hidden" name="csrf" value="{{.CSRF}}">
+  <label>Cognome <input name="last_name" value="{{.P.LastName}}" required maxlength="80" autofocus></label>
+  <label>Nome <input name="first_name" value="{{.P.FirstName}}" required maxlength="80"></label>
+  <label>Data di nascita <input type="date" name="birth_date" value="{{.P.BirthDate}}" required max="{{today}}"></label>
+  <label>Sesso <select name="sex"><option value=""></option><option value="F" {{if eq .P.Sex "F"}}selected{{end}}>F</option><option value="M" {{if eq .P.Sex "M"}}selected{{end}}>M</option></select></label>
+  <label>Codice fiscale (facoltativo) <input name="fiscal_code" value="{{.P.FiscalCode}}" maxlength="16"></label>
+  <label>Codice esterno (laboratorio, cartella; facoltativo) <input name="external_code" value="{{.P.ExternalCode}}" maxlength="40"></label>
+  <label>Telefono <input name="phone" value="{{.P.Phone}}" maxlength="40"></label>
+  <label>Email <input type="email" name="email" value="{{.P.Email}}" maxlength="120"></label>
+  <label class="wide">Indirizzo <input name="address" value="{{.P.Address}}" maxlength="200"></label>
+  <label class="wide">Comorbidità e note cliniche (testo libero) <textarea name="notes" rows="4" maxlength="4000">{{.P.Notes}}</textarea></label>
+  <div class="wide actions"><button class="primary">Salva</button> <a class="button" href="{{if .P.ID}}/patients/{{.P.ID}}{{else}}/patients{{end}}">Annulla</a></div>
+</form>
+</section>
+{{end}}

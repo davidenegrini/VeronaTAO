@@ -1,0 +1,11 @@
+version = 1
+
+[[annotations]]
+path = ["**.md", "AUTHORS", "publiccode.yml"]
+SPDX-FileCopyrightText = "Autori di VeronaTAO (vedi AUTHORS)"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+[[annotations]]
+path = ["**.go", "**.sql", "**.html", "**.css", "**.js", "**.svg", "**.sh", "**.iss", "**.yml", "go.mod", "go.sum", ".gitignore", "REUSE.toml"]
+SPDX-FileCopyrightText = "Autori di VeronaTAO (vedi AUTHORS)"
+SPDX-License-Identifier = "AGPL-3.0-or-later"

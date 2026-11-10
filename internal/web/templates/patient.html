@@ -1,0 +1,82 @@
+{{define "content"}}
+{{template "phead" .PC}}
+{{with .PC}}
+<section class="card summary">
+  {{if .T}}
+  <dl>
+    <div><dt>Inizio percorso</dt><dd>{{.T.OpenedAt.IT}}</dd></div>
+    <div><dt>Durata</dt><dd>{{.T.Duration}}</dd></div>
+    <div><dt>Range INR</dt><dd>{{if .Target}}{{.Target.Label}}{{end}}</dd></div>
+    <div><dt>Farmaco</dt><dd>{{if .PrevPlan}}{{.PrevPlan.DrugLabel}}{{end}}</dd></div>
+    <div class="wide"><dt>Indicazione</dt><dd>{{.T.Indication}}{{if .T.Diagnosis}} — {{.T.Diagnosis}}{{end}}</dd></div>
+    <div class="wide"><dt>TTR 12 mesi</dt><dd>{{template "ttr" .TTR}}</dd></div>
+  </dl>
+  {{else}}
+  <p class="msg warn">Nessun percorso di trattamento aperto: aprilo dalla <a href="/patients/{{.P.ID}}/record">cartella</a> per poter registrare controlli e piani.</p>
+  {{end}}
+  {{if .P.Notes}}<p class="notes"><b>Note:</b> {{.P.Notes}}</p>{{end}}
+</section>
+
+<section class="card">
+  <h2>Storico</h2>
+  <div class="scroll">
+  <table class="list history">
+  <thead><tr><th>Data</th><th class="num">INR</th><th></th><th class="num">Dose sett. (mg)</th><th>Farmaco</th><th>Eparina</th><th class="num">1° giorno</th><th>Ripartizione (quarti, lun→dom)</th><th>Prossimo controllo</th><th>Origine</th><th>Commenti</th></tr></thead>
+  <tbody>
+  {{range .Controls}}<tr>
+    <td><a href="/controls/{{.ID}}">{{.Date.IT}}</a> <span class="muted">{{.Time}}</span></td>
+    <td class="num">{{if .HasINR}}{{.INR}}{{end}}</td>
+    <td>{{template "pos" .Pos}}</td>
+    <td class="num">{{.WeeklyMg}}</td>
+    <td>{{.DrugLabel}}</td>
+    <td>{{if .HasPlan}}{{if .HasHeparin}}Sì{{else}}No{{end}}{{end}}</td>
+    <td class="num">{{if .FirstDay}}{{.FirstDay}}{{end}}</td>
+    <td class="mono">{{if .HasPlan}}{{.Week}}{{end}}</td>
+    <td>{{.NextDate.IT}}</td>
+    <td>{{.SourceLabel}}</td>
+    <td>{{.Comment}}</td>
+  </tr>{{else}}<tr><td colspan="11" class="muted">Nessun controllo registrato.</td></tr>{{end}}
+  </tbody></table>
+  </div>
+  {{if $.Chart}}<details class="chartbox"><summary>Visualizzazione grafica dell'INR</summary>{{$.Chart}}</details>{{end}}
+</section>
+{{end}}
+
+{{if .PC.T}}
+<section class="card" id="nuovo">
+  <h2>Nuovo controllo</h2>
+  {{range .Errors}}<p class="msg err">{{.}}</p>{{end}}
+  <form method="post" action="/patients/{{.PC.P.ID}}/control#nuovo" class="control">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <input type="hidden" name="source" value="{{.F.Source}}">
+    <div class="line">
+      <label>Data <input type="date" name="date" value="{{.F.Date}}" max="{{today}}" required></label>
+      <label>Ora <input type="time" name="time" value="{{.F.Time}}"></label>
+      <label>INR <input name="inr" value="{{.F.INR}}" inputmode="decimal" size="6" maxlength="5" placeholder="es. 2,50" autofocus></label>
+      <label>Sede <select name="site"><option value="lab" {{if eq .F.Site "lab"}}selected{{end}}>Laboratorio</option><option value="poct" {{if eq .F.Site "poct"}}selected{{end}}>POCT</option><option value="home" {{if eq .F.Site "home"}}selected{{end}}>Autocontrollo</option></select></label>
+      <label class="check"><input type="checkbox" name="inr_only" value="1" {{if .F.InrOnly}}checked{{end}}> Solo INR, senza nuovo piano</label>
+    </div>
+    <fieldset class="plan">
+      <legend>Piano posologico (ogni dose è inserita dal medico)</legend>
+      <div class="line">
+        <label>Farmaco <select name="drug_id" id="drug">{{range .PC.Drugs}}<option value="{{.ID}}" data-mg="{{.MgMilli}}" {{if eq .ID $.F.DrugID}}selected{{end}}>{{.Label}}</option>{{end}}</select></label>
+        <label>Dose settimanale (mg) <input name="weekly_mg" value="{{.F.WeeklyMg}}" inputmode="decimal" size="7" maxlength="8"></label>
+        <button name="action" value="distribute" formnovalidate title="Divide in parti il più possibile uguali, sui sette giorni, il totale che hai scritto. È un calcolo aritmetico, non un suggerimento.">Ripartisci sui 7 giorni (aritmetica)</button>
+        <button name="action" value="copy" formnovalidate {{if not .PC.PrevPlan}}disabled{{end}} title="Ricopia la ripartizione settimanale dell'ultima prescrizione">Copia schema precedente</button>
+      </div>
+      <div class="line week">
+        {{range $i, $d := weekdaysLong}}<label>{{$d}} <input type="number" class="q" name="q{{$i}}" value="{{index $.F.Q $i}}" min="0" max="80" step="1"></label>{{end}}
+        <output id="total" class="total">{{if .FormTotalMg}}Totale: {{.FormTotalMg}} mg{{end}}</output>
+      </div>
+      <p class="muted">Dosi in <b>quarti di compressa</b>: 0 = niente, 1 = un quarto, 2 = mezza, 3 = tre quarti, 4 = una, 6 = una e mezza, 8 = due.</p>
+      <div class="line">
+        <label>1° giorno, se diverso (quarti) <input type="number" name="first_day" value="{{.F.FirstDay}}" min="0" max="80" step="1"></label>
+        <label>Prossimo controllo <input type="date" name="next_date" value="{{.F.NextDate}}"></label>
+      </div>
+    </fieldset>
+    <label class="block">Commento per il paziente (stampato sullo schema) <textarea name="comment" rows="2" maxlength="400">{{.F.Comment}}</textarea></label>
+    <div class="actions"><button class="primary" name="action" value="preview">Prosegui: calendario e conferma</button></div>
+  </form>
+</section>
+{{end}}
+{{end}}

@@ -1,0 +1,143 @@
+{{define "content"}}
+{{template "phead" .PC}}
+{{$pid := .PC.P.ID}}
+<section class="card">
+  <h2>Percorsi di trattamento</h2>
+  <table class="list">
+  <thead><tr><th>Indicazione</th><th>Diagnosi</th><th>Apertura</th><th>Chiusura</th><th>Motivo di chiusura</th></tr></thead>
+  <tbody>{{range .Treatments}}<tr {{if .Open}}class="current"{{end}}>
+    <td>{{.Indication}}</td><td>{{.Diagnosis}}</td><td>{{.OpenedAt.IT}}</td>
+    <td>{{if .Open}}<span class="tag">aperto · {{.Duration}}</span>{{else}}{{.ClosedAt.IT}}{{end}}</td><td>{{.CloseReason}} {{.CloseNotes}}</td>
+  </tr>{{else}}<tr><td colspan="5" class="muted">Nessun percorso.</td></tr>{{end}}</tbody></table>
+
+  {{if .PC.T}}{{with .PC.T}}
+  <details><summary>Modifica il percorso aperto</summary>
+  <form method="post" action="/patients/{{$pid}}/treatment/update" class="grid2">
+    <input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="treatment_id" value="{{.ID}}">
+    <label>Indicazione <select name="indication_id">{{range $.Indications}}<option value="{{.ID}}" {{if eq .ID $.PC.T.IndicationID}}selected{{end}}>{{.Name}}</option>{{end}}</select></label>
+    <label>Farmaco abituale <select name="drug_id">{{range $.PC.Drugs}}<option value="{{.ID}}" {{if eq .ID $.PC.T.DrugID}}selected{{end}}>{{.Label}}</option>{{end}}</select></label>
+    <label class="wide">Diagnosi (testo libero, stampata sullo schema) <input name="diagnosis" value="{{.Diagnosis}}" maxlength="200"></label>
+    <label class="check"><input type="checkbox" name="sine_die" value="1" {{if .SineDie}}checked{{end}}> Terapia sine die</label>
+    <label>Fine prevista <input type="date" name="planned_end" value="{{.PlannedEnd}}"></label>
+    <div class="wide actions"><button class="primary">Salva</button></div>
+  </form></details>
+
+  <h3>Range INR del percorso aperto</h3>
+  <table class="list">
+  <thead><tr><th>Range</th><th>Dal</th><th>Al</th><th>Motivazione</th><th>Utente</th></tr></thead>
+  <tbody>{{range $.TargetRows}}<tr><td>{{.Label}}</td><td>{{.From.IT}}</td><td>{{.To.IT}}</td><td>{{.Reason}}</td><td>{{.Username}}</td></tr>{{end}}</tbody></table>
+  <details><summary>Modifica il range INR</summary>
+  <form method="post" action="/patients/{{$pid}}/target" class="line">
+    <input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="treatment_id" value="{{.ID}}">
+    <label>Minimo <input name="inr_min" required size="5" inputmode="decimal"></label>
+    <label>Massimo <input name="inr_max" required size="5" inputmode="decimal"></label>
+    <label>Target (facoltativo) <input name="inr_target" size="5" inputmode="decimal"></label>
+    <label>Decorrenza <input type="date" name="valid_from" value="{{today}}" required></label>
+    <label>Motivazione <input name="reason" required maxlength="200" size="40"></label>
+    <button class="primary">Salva</button>
+  </form></details>
+
+  <details><summary>Chiudi il percorso</summary>
+  <form method="post" action="/patients/{{$pid}}/treatment/close" class="line">
+    <input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="treatment_id" value="{{.ID}}">
+    <label>Data di chiusura <input type="date" name="closed_at" value="{{today}}" required></label>
+    <label>Motivo <select name="close_reason">{{range $.CloseReasons}}<option>{{.}}</option>{{end}}</select></label>
+    <label>Note <input name="close_notes" maxlength="200" size="40"></label>
+    <button class="danger">Chiudi il percorso</button>
+  </form></details>
+  {{end}}{{else}}
+  <h3>Apri un nuovo percorso</h3>
+  <form method="post" action="/patients/{{$pid}}/treatment" class="grid2">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <label>Indicazione <select name="indication_id" id="indication" required><option value=""></option>{{range .Indications}}<option value="{{.ID}}" data-min="{{.Min}}" data-max="{{.Max}}" data-target="{{.Target}}">{{.Name}}</option>{{end}}</select></label>
+    <label>Farmaco <select name="drug_id" required>{{range .PC.Drugs}}<option value="{{.ID}}">{{.Label}}</option>{{end}}</select></label>
+    <label class="wide">Diagnosi (testo libero, stampata sullo schema) <input name="diagnosis" maxlength="200"></label>
+    <label>Data di inizio <input type="date" name="opened_at" value="{{today}}" required></label>
+    <label class="check"><input type="checkbox" name="sine_die" value="1" checked> Terapia sine die</label>
+    <label>Fine prevista (se non sine die) <input type="date" name="planned_end"></label>
+    <div class="line wide">
+      <label>Range INR: minimo <input name="inr_min" id="inr_min" required size="5" inputmode="decimal"></label>
+      <label>massimo <input name="inr_max" id="inr_max" required size="5" inputmode="decimal"></label>
+      <label>target (facoltativo) <input name="inr_target" id="inr_target" size="5" inputmode="decimal"></label>
+    </div>
+    <p class="muted wide">Scegliendo l'indicazione il range viene precompilato con il valore di comodo impostato in Amministrazione: verificalo e correggilo, è una tua decisione.</p>
+    <div class="wide actions"><button class="primary">Apri il percorso</button></div>
+  </form>
+  {{end}}
+</section>
+
+<section class="card">
+  <h2>Farmaci concomitanti</h2>
+  <table class="list">
+  <thead><tr><th>Farmaco</th><th>Posologia</th><th>Dal</th><th>Al</th><th>Interferenza dichiarata dal medico</th><th>Note</th><th></th></tr></thead>
+  <tbody>{{range .Medications}}<tr {{if not .Ongoing}}class="ended"{{end}}>
+    <td>{{.Name}}</td><td>{{.Dosage}}</td><td>{{.StartDate.IT}}</td><td>{{if .Ongoing}}<span class="tag">in corso</span>{{else}}{{.EndDate.IT}}{{end}}</td>
+    <td>{{if .Interfering}}<span class="tag warn">interferente: {{.DirectionLabel}}</span>{{end}}</td><td>{{.Notes}}</td>
+    <td class="rowact">
+      {{if .Ongoing}}<form method="post" action="/patients/{{$pid}}/medications/{{.ID}}/end"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="date" name="end_date" value="{{today}}" required aria-label="Data di sospensione"><button>Sospeso</button></form>{{end}}
+      <form method="post" action="/patients/{{$pid}}/medications/{{.ID}}/delete"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input name="reason" placeholder="motivo" required size="12" maxlength="100" aria-label="Motivo dell'annullamento"><button class="danger">Annulla voce</button></form>
+    </td>
+  </tr>{{else}}<tr><td colspan="7" class="muted">Nessun farmaco registrato.</td></tr>{{end}}</tbody></table>
+  <details><summary>Aggiungi un farmaco</summary>
+  <datalist id="mednames">{{range .MedNames}}<option value="{{.}}">{{end}}</datalist>
+  <form method="post" action="/patients/{{$pid}}/medications" class="grid2">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <label>Farmaco (testo libero) <input name="name" required maxlength="100" list="mednames"></label>
+    <label>Posologia <input name="dosage" maxlength="100"></label>
+    <label>Data di inizio <input type="date" name="start_date" value="{{today}}" required></label>
+    <label class="check"><input type="checkbox" name="interfering" value="1" id="interfering"> Interferente con la TAO (valutazione del medico)</label>
+    <label>Direzione (obbligatoria se interferente) <select name="direction" id="direction"><option value=""></option><option value="increases_inr">aumenta l'INR</option><option value="decreases_inr">riduce l'INR</option><option value="undefined">non definita</option></select></label>
+    <label>Note <input name="notes" maxlength="200"></label>
+    <div class="wide actions"><button class="primary">Aggiungi</button></div>
+  </form></details>
+</section>
+
+<section class="card">
+  <h2>Eventi clinici</h2>
+  <table class="list">
+  <thead><tr><th>Data</th><th>Tipo</th><th>Categoria</th><th>Descrizione</th><th>Esito</th><th></th></tr></thead>
+  <tbody>{{range .Events}}<tr>
+    <td>{{.Date.IT}}</td><td>{{.TypeName}}</td><td>{{.CategoryLabel}}</td><td>{{.Description}}</td><td>{{.Outcome}}</td>
+    <td class="rowact"><form method="post" action="/patients/{{$pid}}/events/{{.ID}}/delete"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input name="reason" placeholder="motivo" required size="12" maxlength="100" aria-label="Motivo dell'annullamento"><button class="danger">Annulla voce</button></form></td>
+  </tr>{{else}}<tr><td colspan="6" class="muted">Nessun evento registrato.</td></tr>{{end}}</tbody></table>
+  <details><summary>Aggiungi un evento</summary>
+  <form method="post" action="/patients/{{$pid}}/events" class="grid2">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <label>Data <input type="date" name="date" value="{{today}}" max="{{today}}" required></label>
+    <label>Tipo <select name="type_id" required>{{range .EventTypes}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></label>
+    <label class="wide">Descrizione <textarea name="description" rows="2" maxlength="2000"></textarea></label>
+    <label class="wide">Esito <input name="outcome" maxlength="200"></label>
+    <div class="wide actions"><button class="primary">Aggiungi</button></div>
+  </form></details>
+</section>
+
+<section class="card">
+  <h2>Stato del paziente: {{.PC.P.StatusLabel}}</h2>
+  <form method="post" action="/patients/{{$pid}}/status" class="line">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <label>Nuovo stato <select name="status">{{range .Statuses}}<option value="{{.}}" {{if eq . $.PC.P.Status}}selected{{end}}>{{statusLabel .}}</option>{{end}}</select></label>
+    <label>Data <input type="date" name="date" value="{{today}}"></label>
+    <label>Motivazione <input name="reason" maxlength="200" size="40"></label>
+    <button>Cambia stato</button>
+  </form>
+  {{if .StatusChanges}}<table class="list"><thead><tr><th>Data</th><th>Da</th><th>A</th><th>Motivazione</th><th>Utente</th></tr></thead>
+  <tbody>{{range .StatusChanges}}<tr><td>{{.Date.IT}}</td><td>{{.OldLabel}}</td><td>{{.NewLabel}}</td><td>{{.Reason}}</td><td>{{.Username}}</td></tr>{{end}}</tbody></table>{{end}}
+</section>
+
+<section class="card">
+  <h2>Documenti stampati</h2>
+  <table class="list">
+  <thead><tr><th>Stampato il</th><th>Periodo</th><th>Modello</th><th>Utente</th><th>Impronta SHA-256</th></tr></thead>
+  <tbody>{{range .Printed}}<tr><td><a href="/documents/{{.ID}}" target="_blank">{{.CreatedAt}}</a></td><td>{{.PeriodFrom.IT}} – {{.PeriodTo.IT}}</td><td>{{.TemplateCode}}</td><td>{{.Username}}</td><td class="mono small">{{.SHA256}}</td></tr>
+  {{else}}<tr><td colspan="5" class="muted">Nessun documento.</td></tr>{{end}}</tbody></table>
+</section>
+
+<section class="card">
+  <h2>Dati e registro</h2>
+  <form method="post" action="/patients/{{$pid}}/export"><input type="hidden" name="csrf" value="{{.CSRF}}"><button>Esporta tutti i dati del paziente (JSON)</button></form>
+  <details><summary>Ultime attività su questo paziente</summary>
+  <table class="list small"><thead><tr><th>Quando</th><th>Utente</th><th>Azione</th><th>Oggetto</th><th>Dettagli</th></tr></thead>
+  <tbody>{{range .Audit}}<tr><td>{{.At}}</td><td>{{.Username}}</td><td>{{.Action}}</td><td>{{.Entity}} {{.EntityID}}</td><td>{{.Details}}</td></tr>{{end}}</tbody></table>
+  </details>
+</section>
+{{end}}

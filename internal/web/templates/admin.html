@@ -1,0 +1,139 @@
+{{define "content"}}
+<h1>Amministrazione</h1>
+{{if .BackupWarning}}<p class="msg warn">{{.BackupWarning}}</p>{{end}}
+
+<section class="card">
+  <h2>Utenti</h2>
+  <p class="muted">Account personali: uno per ogni persona. Per reimpostare una password viene generata una password temporanea, da comunicare di persona e da cambiare al primo accesso.</p>
+  <table class="list">
+  <thead><tr><th>Nome utente</th><th>Nome e cognome</th><th>Ruolo</th><th>Attivo</th><th>Ultimo accesso</th><th></th></tr></thead>
+  <tbody>{{range .Users}}<tr>
+    <td>{{.Username}}</td>
+    <td colspan="3"><form method="post" action="/admin/users/{{.ID}}" class="line"><input type="hidden" name="csrf" value="{{$.CSRF}}">
+      <input name="full_name" value="{{.FullName}}" required maxlength="80" aria-label="Nome e cognome">
+      <select name="role" aria-label="Ruolo"><option value="admin" {{if eq .Role "admin"}}selected{{end}}>Amministratore</option><option value="clinician" {{if eq .Role "clinician"}}selected{{end}}>Medico</option><option value="assistant" {{if eq .Role "assistant"}}selected{{end}}>Collaboratore</option></select>
+      <label class="check"><input type="checkbox" name="active" value="1" {{if .Active}}checked{{end}}> attivo</label>
+      <button>Salva</button></form></td>
+    <td>{{.LastLoginAt}}</td>
+    <td><form method="post" action="/admin/users/{{.ID}}/reset"><input type="hidden" name="csrf" value="{{$.CSRF}}"><button>Reimposta password</button></form></td>
+  </tr>{{end}}</tbody></table>
+  <details><summary>Nuovo utente</summary>
+  <form method="post" action="/admin/users" class="line"><input type="hidden" name="csrf" value="{{.CSRF}}">
+    <label>Nome utente <input name="username" required maxlength="40"></label>
+    <label>Nome e cognome <input name="full_name" required maxlength="80"></label>
+    <label>Ruolo <select name="role"><option value="clinician">Medico</option><option value="assistant">Collaboratore</option><option value="admin">Amministratore</option></select></label>
+    <button class="primary">Crea</button>
+  </form></details>
+</section>
+
+<section class="card">
+  <h2>Backup e ripristino</h2>
+  <dl>
+    <div><dt>Ultimo backup automatico</dt><dd>{{or .Set.last_backup_at "mai"}}</dd></div>
+    <div><dt>Ultima verifica</dt><dd>{{or .Set.last_verify_at "mai"}}</dd></div>
+    <div><dt>Cartella dei backup</dt><dd class="mono">{{.BackupDir}}</dd></div>
+    <div><dt>Cartella dei dati</dt><dd class="mono">{{.DataDir}}</dd></div>
+  </dl>
+  {{if not .HasPassphrase}}<p class="msg warn">Per attivare il backup giornaliero automatico imposta la passphrase dei backup nelle Impostazioni qui sotto. Conservala anche fuori dal computer: senza passphrase un backup non è recuperabile.</p>{{end}}
+  <div class="line">
+    <form method="post" action="/admin/backup/now"><input type="hidden" name="csrf" value="{{.CSRF}}"><button {{if not .HasPassphrase}}disabled{{end}}>Esegui ora il backup automatico</button></form>
+    <form method="post" action="/admin/backup/verify" enctype="multipart/form-data"><input type="hidden" name="csrf" value="{{.CSRF}}"><button {{if not .HasPassphrase}}disabled{{end}}>Verifica l'ultimo backup automatico</button></form>
+  </div>
+  <details><summary>Scarica una copia cifrata (copia fuori sede o trasporto in un'altra sede)</summary>
+  <form method="post" action="/admin/backup/download" class="line"><input type="hidden" name="csrf" value="{{.CSRF}}">
+    <label>Passphrase (almeno 10 caratteri) <input type="password" name="passphrase" required minlength="10" autocomplete="new-password"></label>
+    <label>Ripeti <input type="password" name="passphrase2" required minlength="10" autocomplete="new-password"></label>
+    <button class="primary">Scarica</button>
+  </form>
+  <p class="muted">Per spostare l'archivio in un'altra sede: scarica la copia, portala nell'altra sede e ripristinala lì. Deve restare in uso una sola copia alla volta: i dati inseriti in due copie diverse non possono essere riuniti.</p>
+  </details>
+  <details><summary>Verifica un file di backup</summary>
+  <form method="post" action="/admin/backup/verify" enctype="multipart/form-data" class="line"><input type="hidden" name="csrf" value="{{.CSRF}}">
+    <label>File <input type="file" name="file" required accept=".vtbk"></label>
+    <label>Passphrase <input type="password" name="passphrase" required autocomplete="off"></label>
+    <button>Verifica senza ripristinare</button>
+  </form></details>
+  <details><summary>Ripristina da un file di backup</summary>
+  <p class="msg warn">Il ripristino sostituisce l'intero archivio corrente con il contenuto del backup. L'archivio attuale viene conservato in una copia nella cartella dei dati. Al termine il programma si arresta e va riavviato.</p>
+  <form method="post" action="/admin/backup/restore" enctype="multipart/form-data" class="line"><input type="hidden" name="csrf" value="{{.CSRF}}">
+    <label>File <input type="file" name="file" required accept=".vtbk"></label>
+    <label>Passphrase <input type="password" name="passphrase" required autocomplete="off"></label>
+    <label>Scrivi RIPRISTINA per confermare <input name="confirm" required size="12" autocomplete="off"></label>
+    <button class="danger">Ripristina</button>
+  </form></details>
+</section>
+
+<section class="card">
+  <h2>Impostazioni</h2>
+  <form method="post" action="/admin/settings" class="grid2"><input type="hidden" name="csrf" value="{{.CSRF}}">
+    <label class="wide">Intestazione delle stampe (più righe) <textarea name="header" rows="4" maxlength="600">{{.Set.header}}</textarea></label>
+    <label class="wide">Titolo del documento per il paziente <input name="doc_title" value="{{.Set.doc_title}}" maxlength="120" required></label>
+    <label>Codice e revisione del modello di stampa <input name="template_code" value="{{.Set.template_code}}" maxlength="60" required></label>
+    <label class="check"><input type="checkbox" name="print_ttr" value="1" {{if eq .Set.print_ttr "1"}}checked{{end}}> Stampa il TTR sullo schema del paziente</label>
+    <label class="wide">Testo a piè di pagina dello schema (scritto dallo studio; il programma non fornisce testi propri) <textarea name="footer_text" rows="5" maxlength="1200">{{.Set.footer_text}}</textarea></label>
+    <label>Scadenza della sessione per inattività (minuti) <input type="number" name="session_minutes" value="{{.Set.session_minutes}}" min="1" max="480" required></label>
+    <label>Preavviso controlli in scadenza (giorni) <input type="number" name="due_days" value="{{.Set.due_days}}" min="0" max="365" required></label>
+    <label>Dose giornaliera oltre la quale chiedere conferma (quarti; 0 = mai) <input type="number" name="max_daily_quarters" value="{{.Set.max_daily_quarters}}" min="0" max="80" required></label>
+    <label>Variazione della dose settimanale oltre la quale chiedere conferma (%; 0 = mai) <input type="number" name="weekly_variation_pct" value="{{.Set.weekly_variation_pct}}" min="0" max="1000" required></label>
+    <label>Giorni senza INR per l'elenco «senza INR» <input type="number" name="lost_days" value="{{.Set.lost_days}}" min="1" max="3650" required></label>
+    <label>Avviso se l'ultimo backup supera (giorni) <input type="number" name="backup_warn_days" value="{{.Set.backup_warn_days}}" min="1" max="365" required></label>
+    <label>Numero di backup automatici da conservare <input type="number" name="backup_keep" value="{{.Set.backup_keep}}" min="1" max="3650" required></label>
+    <label>Cartella dei backup (vuoto = cartella predefinita; può essere un disco esterno o di rete) <input name="backup_dir" value="{{.Set.backup_dir}}" maxlength="260"></label>
+    <label>Passphrase dei backup automatici (lasciare vuoto per non cambiarla) <input type="password" name="backup_passphrase" minlength="10" autocomplete="new-password"></label>
+    <label>Ripeti la passphrase <input type="password" name="backup_passphrase2" minlength="10" autocomplete="new-password"></label>
+    <label class="check wide"><input type="checkbox" name="lan_enabled" value="1" {{if eq .Set.lan_enabled "1"}}checked{{end}}> Consenti l'accesso dagli altri computer della rete locale (connessione cifrata HTTPS con certificato locale; ha effetto al prossimo avvio)</label>
+    <label>Porta <input type="number" name="port" value="{{.Set.port}}" min="1024" max="65535" required></label>
+    <div class="wide actions"><button class="primary">Salva le impostazioni</button></div>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Farmaci anticoagulanti</h2>
+  <table class="list"><thead><tr><th>Principio attivo · nome commerciale · mg per compressa · divisibilità</th></tr></thead>
+  <tbody>{{range .Drugs}}<tr><td><form method="post" action="/admin/drugs" class="line"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="id" value="{{.ID}}">
+    <input name="ingredient" value="{{.Ingredient}}" required maxlength="80" aria-label="Principio attivo"><input name="brand" value="{{.Brand}}" required maxlength="80" aria-label="Nome commerciale">
+    <input name="mg" value="{{mg .MgMilli}}" required size="6" aria-label="mg per compressa">
+    <select name="divisibility" aria-label="Divisibilità"><option value="quarter" {{if eq .Div "quarter"}}selected{{end}}>in quarti</option><option value="half" {{if eq .Div "half"}}selected{{end}}>a metà</option><option value="whole" {{if eq .Div "whole"}}selected{{end}}>non divisibile</option></select>
+    <label class="check"><input type="checkbox" name="active" value="1" {{if .Active}}checked{{end}}> attivo</label><button>Salva</button></form></td></tr>{{end}}
+  <tr><td><form method="post" action="/admin/drugs" class="line"><input type="hidden" name="csrf" value="{{.CSRF}}"><input type="hidden" name="active" value="1">
+    <input name="ingredient" placeholder="principio attivo" required maxlength="80" aria-label="Principio attivo"><input name="brand" placeholder="nome commerciale" required maxlength="80" aria-label="Nome commerciale">
+    <input name="mg" placeholder="mg" required size="6" aria-label="mg per compressa">
+    <select name="divisibility" aria-label="Divisibilità"><option value="quarter">in quarti</option><option value="half">a metà</option><option value="whole">non divisibile</option></select>
+    <button class="primary">Aggiungi</button></form></td></tr></tbody></table>
+</section>
+
+<section class="card">
+  <h2>Indicazioni e range di comodo</h2>
+  <p class="muted">Il range associato all'indicazione serve solo a precompilare l'apertura di un percorso: il medico lo verifica e lo conferma ogni volta.</p>
+  <table class="list"><thead><tr><th>Nome · minimo · massimo · target</th></tr></thead>
+  <tbody>{{range .Indications}}<tr><td><form method="post" action="/admin/indications" class="line"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="id" value="{{.ID}}">
+    <input name="name" value="{{.Name}}" required maxlength="120" size="40" aria-label="Nome"><input name="inr_min" value="{{.Min}}" size="5" required aria-label="Minimo"><input name="inr_max" value="{{.Max}}" size="5" required aria-label="Massimo"><input name="inr_target" value="{{if .Target}}{{.Target}}{{end}}" size="5" aria-label="Target">
+    <label class="check"><input type="checkbox" name="active" value="1" {{if .Active}}checked{{end}}> attiva</label><button>Salva</button></form></td></tr>{{end}}
+  <tr><td><form method="post" action="/admin/indications" class="line"><input type="hidden" name="csrf" value="{{.CSRF}}"><input type="hidden" name="active" value="1">
+    <input name="name" placeholder="nuova indicazione" required maxlength="120" size="40" aria-label="Nome"><input name="inr_min" placeholder="min" size="5" required aria-label="Minimo"><input name="inr_max" placeholder="max" size="5" required aria-label="Massimo"><input name="inr_target" placeholder="target" size="5" aria-label="Target">
+    <button class="primary">Aggiungi</button></form></td></tr></tbody></table>
+</section>
+
+<section class="card">
+  <h2>Tipi di evento</h2>
+  <table class="list"><tbody>{{range .EventTypes}}<tr><td><form method="post" action="/admin/eventtypes" class="line"><input type="hidden" name="csrf" value="{{$.CSRF}}"><input type="hidden" name="id" value="{{.ID}}">
+    <input name="name" value="{{.Name}}" required maxlength="120" size="40" aria-label="Nome">
+    <select name="category" aria-label="Categoria"><option value="hemorrhagic" {{if eq .Category "hemorrhagic"}}selected{{end}}>Emorragico</option><option value="thrombotic" {{if eq .Category "thrombotic"}}selected{{end}}>Trombotico</option><option value="other" {{if eq .Category "other"}}selected{{end}}>Altro</option></select>
+    <label class="check"><input type="checkbox" name="active" value="1" {{if .Active}}checked{{end}}> attivo</label><button>Salva</button></form></td></tr>{{end}}
+  <tr><td><form method="post" action="/admin/eventtypes" class="line"><input type="hidden" name="csrf" value="{{.CSRF}}"><input type="hidden" name="active" value="1">
+    <input name="name" placeholder="nuovo tipo di evento" required maxlength="120" size="40" aria-label="Nome">
+    <select name="category" aria-label="Categoria"><option value="hemorrhagic">Emorragico</option><option value="thrombotic">Trombotico</option><option value="other">Altro</option></select>
+    <button class="primary">Aggiungi</button></form></td></tr></tbody></table>
+</section>
+
+<section class="card">
+  <h2>Registro, estrazioni e arresto</h2>
+  <div class="line">
+    <a class="button" href="/admin/audit">Registro delle attività</a>
+    <form method="post" action="/admin/export.csv"><input type="hidden" name="csrf" value="{{.CSRF}}"><input type="hidden" name="mode" value="pseudonymized"><button>Estrai i controlli in CSV (pseudonimizzato)</button></form>
+    <form method="post" action="/admin/export.csv"><input type="hidden" name="csrf" value="{{.CSRF}}"><input type="hidden" name="mode" value="nominative"><button>Estrai i controlli in CSV (nominativo)</button></form>
+    <form method="post" action="/admin/shutdown"><input type="hidden" name="csrf" value="{{.CSRF}}"><button class="danger">Arresta VeronaTAO</button></form>
+  </div>
+  <p class="muted">Ogni estrazione è annotata nel registro. Comunicare dati a terzi richiede una base giuridica propria, di cui risponde il titolare del trattamento.</p>
+</section>
+{{end}}

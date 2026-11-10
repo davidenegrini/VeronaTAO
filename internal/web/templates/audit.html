@@ -1,0 +1,16 @@
+{{define "content"}}
+<section class="card">
+  <h1>Registro delle attività</h1>
+  <p class="muted">Il registro è di sola aggiunta: nessuna voce può essere modificata o cancellata. Sono mostrate le 500 voci più recenti.</p>
+  <div class="line">
+  <form method="post" action="/admin/audit" class="search"><input type="hidden" name="csrf" value="{{.CSRF}}">
+    <input type="search" name="q" value="{{.Q}}" placeholder="Filtra per utente, azione, oggetto o dettagli" aria-label="Filtro"><button class="primary">Filtra</button></form>
+  <form method="post" action="/admin/audit.csv"><input type="hidden" name="csrf" value="{{.CSRF}}"><button>Esporta tutto in CSV</button></form>
+  <a class="button" href="/admin">Torna all'amministrazione</a>
+  </div>
+  <table class="list small">
+  <thead><tr><th>N.</th><th>Quando</th><th>Utente</th><th>Azione</th><th>Oggetto</th><th>Paziente</th><th>Dettagli</th><th>Indirizzo</th></tr></thead>
+  <tbody>{{range .Rows}}<tr><td>{{.ID}}</td><td>{{.At}}</td><td>{{.Username}}</td><td>{{.Action}}</td><td>{{.Entity}} {{if .EntityID}}{{.EntityID}}{{end}}</td>
+    <td>{{if .PatientID}}<a href="/patients/{{.PatientID}}">{{.PatientID}}</a>{{end}}</td><td>{{.Details}}</td><td>{{.IP}}</td></tr>{{end}}</tbody></table>
+</section>
+{{end}}

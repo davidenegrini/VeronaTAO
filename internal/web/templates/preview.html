@@ -1,0 +1,42 @@
+{{define "content"}}
+{{template "phead" .PC}}
+<section class="card">
+  <h2>Calendario del piano — da confermare</h2>
+  {{range .Errors}}<p class="msg err">{{.}}</p>{{end}}
+  <form method="post" action="/patients/{{.PC.P.ID}}/control">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <input type="hidden" name="date" value="{{.F.Date}}"><input type="hidden" name="time" value="{{.F.Time}}">
+    <input type="hidden" name="inr" value="{{.F.INR}}"><input type="hidden" name="site" value="{{.F.Site}}">
+    <input type="hidden" name="drug_id" value="{{.F.DrugID}}"><input type="hidden" name="weekly_mg" value="{{.F.WeeklyMg}}">
+    {{range $i, $q := .F.Q}}<input type="hidden" name="q{{$i}}" value="{{$q}}">{{end}}
+    <input type="hidden" name="first_day" value="{{.F.FirstDay}}"><input type="hidden" name="next_date" value="{{.F.NextDate}}">
+    <input type="hidden" name="comment" value="{{.F.Comment}}"><input type="hidden" name="source" value="{{.F.Source}}">
+
+    <dl class="inline">
+      <div><dt>Controllo del</dt><dd>{{.C.Date.IT}}</dd></div>
+      <div><dt>INR</dt><dd>{{if .C.HasINR}}{{.C.INR}}{{else}}non inserito{{end}}</dd></div>
+      <div><dt>Farmaco</dt><dd>{{.Drug.Label}}</dd></div>
+      <div><dt>Schema settimanale</dt><dd class="mono">{{.Week}}</dd></div>
+      <div><dt>Dose settimanale</dt><dd>{{.C.WeeklyMg}} mg</dd></div>
+      <div><dt>Periodo</dt><dd>{{.DayCount}} giorni, fino al {{.C.PlanEnd.IT}} · totale {{.PeriodMg}} mg</dd></div>
+      <div><dt>Prossimo controllo</dt><dd>{{weekdayLong .C.NextDate}} {{.C.NextDate.IT}}</dd></div>
+    </dl>
+    <p class="muted">Puoi modificare ogni singolo giorno (dose in quarti di compressa) e indicare l'eparina. I giorni che si discostano dallo schema settimanale sono evidenziati. Dopo una modifica premi «Aggiorna anteprima».</p>
+    <datalist id="heparins">{{range .HeparinNames}}<option value="{{.}}">{{end}}</datalist>
+    {{template "calendar" dict "Weeks" .Weeks "Week" .Week "Edit" true}}
+
+    {{if .Warnings}}
+    <div class="msg warn">
+      <b>Verifiche di coerenza dell'inserimento</b>
+      <ul>{{range .Warnings}}<li>{{.}}</li>{{end}}</ul>
+      <label class="check"><input type="checkbox" name="confirm" value="1"> Ho verificato: i valori inseriti sono corretti</label>
+    </div>
+    {{end}}
+    <div class="actions">
+      <button class="primary" name="action" value="save">Conferma e salva</button>
+      <button name="action" value="refresh">Aggiorna anteprima</button>
+      <button name="action" value="edit" formnovalidate>Indietro</button>
+    </div>
+  </form>
+</section>
+{{end}}

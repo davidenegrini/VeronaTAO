@@ -1,0 +1,37 @@
+{{define "content"}}
+<section class="card">
+  <form method="post" action="/patients" class="search">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <input type="search" name="q" placeholder="Cerca paziente: cognome, nome, codice o data di nascita (gg/mm/aaaa)" autofocus aria-label="Cerca paziente">
+    <button class="primary">Cerca</button>
+    <a class="button" href="/patients/new">Nuovo paziente</a>
+  </form>
+  <p class="muted">{{.ActiveCount}} pazienti attivi.</p>
+</section>
+{{if .BackupWarning}}<p class="msg warn">{{.BackupWarning}}</p>{{end}}
+
+<section class="card">
+  <h2>Controlli scaduti o in scadenza entro {{.DueDays}} giorni <span class="count">{{len .Due}}</span></h2>
+  {{if .Due}}{{template "plist" .Due}}{{else}}<p class="muted">Nessuno.</p>{{end}}
+</section>
+<div class="cols">
+<section class="card">
+  <h2>Ultimo INR fuori dal range impostato <span class="count">{{len .OutOfRange}}</span></h2>
+  {{if .OutOfRange}}{{template "plist" .OutOfRange}}{{else}}<p class="muted">Nessuno.</p>{{end}}
+</section>
+<section class="card">
+  <h2>Senza INR da oltre {{.LostDays}} giorni <span class="count">{{len .NoINR}}</span></h2>
+  {{if .NoINR}}{{template "plist" .NoINR}}{{else}}<p class="muted">Nessuno.</p>{{end}}
+</section>
+</div>
+<div class="cols">
+<section class="card">
+  <h2>Eparina in corso <span class="count">{{len .Heparin}}</span></h2>
+  {{if .Heparin}}{{template "plist" .Heparin}}{{else}}<p class="muted">Nessuno.</p>{{end}}
+</section>
+<section class="card">
+  <h2>Pazienti attivi senza percorso aperto <span class="count">{{len .NoTreatment}}</span></h2>
+  {{if .NoTreatment}}{{template "plist" .NoTreatment}}{{else}}<p class="muted">Nessuno.</p>{{end}}
+</section>
+</div>
+{{end}}
