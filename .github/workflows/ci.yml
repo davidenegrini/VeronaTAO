@@ -6,6 +6,14 @@ on:
     branches: [main]
     tags: ["v*"]
   pull_request:
+  # Pubblicazione manuale di una versione dalla pagina Actions ("Run workflow"),
+  # senza dover creare il tag a mano: il tag viene creato insieme alla release.
+  workflow_dispatch:
+    inputs:
+      versione:
+        description: "Versione da pubblicare, nella forma X.Y.Z (ad esempio 0.1.0)"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -37,11 +45,16 @@ jobs:
           go-version-file: go.mod
       - name: Compila l'eseguibile
         shell: bash
+        env:
+          VERSION: ${{ inputs.versione }}
         run: ./packaging/build.sh
       - name: Compila l'installer
         shell: pwsh
+        env:
+          VERSION: ${{ inputs.versione }}
         run: |
-          $v = (git describe --tags --always) -replace '^v', ''
+          $v = if ($env:VERSION) { $env:VERSION } else { git describe --tags --always }
+          $v = $v -replace '^v', ''
           & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$v" packaging\veronatao.iss
       - name: Prova dell'installer (installazione, primo avvio, aggiornamento, disinstallazione)
         shell: pwsh
@@ -53,11 +66,14 @@ jobs:
             dist/VeronaTAO.exe
             dist/VeronaTAO-Setup.exe
 
-  # Alla creazione di un tag vX.Y.Z pubblica la release con installer,
-  # eseguibile e impronte SHA-256. Le versioni 0.x sono marcate come
+  # Pubblica la release con installer, eseguibile e impronte SHA-256: alla
+  # creazione di un tag vX.Y.Z, oppure con l'avvio manuale dal ramo main (in
+  # quel caso il tag viene creato qui). Le versioni 0.x sono marcate come
   # versioni preliminari.
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: >-
+      startsWith(github.ref, 'refs/tags/v') ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     needs: installer
     runs-on: ubuntu-latest
     permissions:
@@ -71,15 +87,21 @@ jobs:
       - name: Pubblica la release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
+          VERSIONE: ${{ inputs.versione }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
+          if [ -n "$VERSIONE" ]; then v="${VERSIONE#v}"; else v="${REF_NAME#v}"; fi
+          echo "$v" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "Versione non valida: $v"; exit 1; }
+          TAG="v$v"
           cd dist
           sha256sum VeronaTAO-Setup.exe VeronaTAO.exe > SHA256SUMS.txt
           cat SHA256SUMS.txt
           # Le note sono la sezione del CHANGELOG relativa a questa versione.
-          awk -v v="${TAG#v}" '/^## /{p = index($0, "[" v "]") > 0} p' ../CHANGELOG.md > note.md
-          test -s note.md
+          awk -v v="$v" '/^## /{p = index($0, "[" v "]") > 0} p' ../CHANGELOG.md > note.md
+          test -s note.md || { echo "CHANGELOG.md non ha una sezione per la versione $v"; exit 1; }
           pre=""
-          case "$TAG" in v0.*) pre="--prerelease" ;; esac
+          case "$v" in 0.*) pre="--prerelease" ;; esac
+          # Se il tag non esiste viene creato sul commit in corso. Una release
+          # già pubblicata con lo stesso nome non viene mai sovrascritta.
           gh release create "$TAG" VeronaTAO-Setup.exe VeronaTAO.exe SHA256SUMS.txt \
-            --title "VeronaTAO ${TAG#v}" --notes-file note.md $pre
+            --target "$GITHUB_SHA" --title "VeronaTAO $v" --notes-file note.md $pre

@@ -237,11 +237,15 @@ Tutte incorporate nell'eseguibile, nessuna caricata a runtime, tutte con licenze
 
 1. Aggiorna `CHANGELOG.md` con una sezione `## [X.Y.Z] - data`, e `softwareVersion` e
    `releaseDate` in `publiccode.yml`.
-2. Dopo il merge su `main`, crea e invia il tag `vX.Y.Z`.
-3. Il workflow «CI» esegue i test, compila l'installer, lo prova su Windows (installazione,
-   primo avvio, aggiornamento con il programma in esecuzione, disinstallazione) e pubblica la
-   release con `VeronaTAO-Setup.exe`, `VeronaTAO.exe` e le impronte `SHA256SUMS.txt`. Le
-   versioni 0.x sono marcate come preliminari.
+2. Dopo il merge su `main`, avvia la pubblicazione in uno dei due modi:
+   - dalla pagina *Actions* del repository: workflow «CI» → *Run workflow* → ramo `main`,
+     indicando la versione `X.Y.Z` (il tag `vX.Y.Z` viene creato automaticamente);
+   - oppure creando e inviando a mano il tag `vX.Y.Z`.
+3. Il workflow esegue i test, compila l'installer con quel numero di versione, lo prova su
+   Windows (installazione, primo avvio, aggiornamento con il programma in esecuzione,
+   disinstallazione) e pubblica la release con `VeronaTAO-Setup.exe`, `VeronaTAO.exe` e le
+   impronte `SHA256SUMS.txt`. Le versioni 0.x sono marcate come preliminari. Una release già
+   pubblicata non viene mai sovrascritta.
 
 Per segnalare un problema di sicurezza vedi [SECURITY.md](SECURITY.md); le modifiche di ogni
 versione sono in [CHANGELOG.md](CHANGELOG.md).
