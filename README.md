@@ -50,8 +50,9 @@ da consegnare al paziente, con la dose scritta a parole e il pittogramma delle c
 
 1. Scarica `VeronaTAO-Setup.exe` dalla pagina dei rilasci ed eseguilo (oppure copia
    `VeronaTAO.exe` in una cartella a scelta: funziona anche senza installazione).
-2. Avvia VeronaTAO dal collegamento: si apre il browser. Al primo avvio scegli la **cartella
-   dell'archivio** (puoi lasciare quella proposta), poi crei l'utente amministratore.
+2. Avvia VeronaTAO dal collegamento: si apre il browser. Al primo avvio conferma la **cartella
+   dell'archivio** con il pulsante *Usa la cartella consigliata* (oppure scegline un'altra),
+   poi crei l'utente amministratore.
 3. In **Amministrazione → Impostazioni** imposta subito la **passphrase dei backup** e
    l'intestazione dello studio per le stampe.
 
@@ -74,7 +75,9 @@ che ospita l'archivio deve essere acceso. Non esporre mai VeronaTAO su Internet.
 
 ### Scegliere o cambiare la cartella dell'archivio
 
-Al primo avvio VeronaTAO chiede dove tenere l'archivio. La cartella deve stare su un disco
+Al primo avvio VeronaTAO propone una cartella consigliata, che va bene nella quasi totalità
+dei casi e si conferma con un clic; chi ha esigenze particolari può indicarne un'altra. La
+cartella deve stare su un disco
 del computer, meglio se cifrato: non sono accettate condivisioni di rete né cartelle
 sincronizzate (OneDrive, Dropbox e simili), dove i dati uscirebbero dal computer e l'archivio
 potrebbe danneggiarsi. Se la cartella indicata contiene già un archivio, viene usato quello.

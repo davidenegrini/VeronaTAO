@@ -109,7 +109,10 @@ input{font:inherit;width:100%;box-sizing:border-box;padding:.4rem;border:1px sol
 button,a.b{font:inherit;display:inline-block;margin-top:.8rem;padding:.4rem 1rem;border:1px solid #1d4f7a;border-radius:4px;background:#1d4f7a;color:#fff;text-decoration:none;cursor:pointer}
 .err{background:#fde8e6;border:1px solid #a12622;color:#a12622;padding:.5rem .8rem;border-radius:5px}
 .ok{background:#e4f4ea;border:1px solid #1f7a45;color:#1f7a45;padding:.5rem .8rem;border-radius:5px}
-li{margin:.3rem 0}.m{color:#5d6b7c;font-size:.92rem}code{background:#eef1f5;padding:0 .25rem}
+li{margin:.3rem 0}.m{color:#5d6b7c;font-size:.92rem}code{background:#eef1f5;padding:0 .25rem;word-break:break-all}
+.rec{border:2px solid #1d4f7a;border-radius:6px;padding:.2rem 1rem 1rem;background:#f0f6fc}.rec p{margin:.6rem 0 0}
+details{margin-top:1.2rem}summary{cursor:pointer;color:#1d4f7a}details form{margin-top:.8rem}
+button.sec{background:#eef1f5;color:#1a2330;border-color:#8f9aa8}
 </style>{{if .Done}}<meta http-equiv="refresh" content="3;url=/">{{end}}</head><body>
 <header>VeronaTAO</header><main>
 {{if .Done}}
@@ -118,19 +121,27 @@ li{margin:.3rem 0}.m{color:#5d6b7c;font-size:.92rem}code{background:#eef1f5;padd
 <p>Tra qualche secondo si apre la pagina successiva.</p><a class="b" href="/">Continua</a>
 {{else}}
 <h1>Dove conservare l'archivio?</h1>
-<p>Scegli la cartella di questo computer in cui VeronaTAO terrà i dati dei pazienti, i backup automatici e il registro.</p>
+<p>VeronaTAO deve tenere i dati dei pazienti, i backup automatici e il registro in una cartella di questo computer.</p>
 {{if .Error}}<p class="err">{{.Error}}</p>{{end}}
+<form method="post" action="/" class="rec">
+<input type="hidden" name="dir" value="{{.Default}}">
+<p><b>Cartella consigliata</b><br><code>{{.Default}}</code></p>
+<p class="m">Va bene nella quasi totalità dei casi: se non hai esigenze particolari, usa questa.</p>
+<button autofocus>Usa la cartella consigliata</button>
+</form>
+<details{{if .Custom}} open{{end}}>
+<summary>Scegli un'altra cartella</summary>
 <form method="post" action="/">
-<label for="dir">Cartella dell'archivio</label>
-<input id="dir" name="dir" value="{{.Dir}}" required autofocus spellcheck="false">
-<button>Usa questa cartella</button>
+<label for="dir">Percorso completo della cartella</label>
+<input id="dir" name="dir" value="{{.Dir}}" required spellcheck="false">
+<button class="sec">Usa questa cartella</button>
 </form>
 <ul class="m">
-<li>Se non hai esigenze particolari, lascia la cartella proposta.</li>
 <li>Deve essere su un disco di questo computer, meglio se cifrato. Non usare cartelle di rete né cartelle sincronizzate (OneDrive, Dropbox e simili).</li>
 <li>Se la cartella contiene già un archivio di VeronaTAO, verrà usato quello: nulla viene sovrascritto.</li>
 <li>Se la cartella non esiste viene creata.</li>
 </ul>
+</details>
 {{end}}
 </main></body></html>`))
 
@@ -142,7 +153,7 @@ func locationHandler(def string, chosen chan<- string) http.Handler {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		data := map[string]any{"Dir": def}
+		data := map[string]any{"Dir": def, "Default": def}
 		switch {
 		case r.URL.Path != "/":
 			http.Redirect(w, r, "/", http.StatusSeeOther)
@@ -153,7 +164,8 @@ func locationHandler(def string, chosen chan<- string) http.Handler {
 				return
 			}
 			r.Body = http.MaxBytesReader(w, r.Body, 1<<16)
-			data["Dir"] = r.FormValue("dir")
+			// Dopo un errore su una cartella scelta a mano, la sezione resta aperta.
+			data["Dir"], data["Custom"] = r.FormValue("dir"), r.FormValue("dir") != def
 			dir, err := validateLocation(r.FormValue("dir"))
 			if err == nil {
 				err = writeLocation(def, dir)

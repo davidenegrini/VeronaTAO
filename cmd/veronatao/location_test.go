@@ -87,11 +87,14 @@ func TestLocationPage(t *testing.T) {
 		n, _ := resp.Body.Read(b)
 		return string(b[:n])
 	}
-	if page := body(http.Get(ts.URL + "/")); !strings.Contains(page, "Dove conservare") || !strings.Contains(page, "predefinita") {
-		t.Error("pagina di scelta")
+	// La cartella consigliata è già pronta: basta un clic, senza scrivere nulla.
+	page := body(http.Get(ts.URL + "/"))
+	if !strings.Contains(page, "Usa la cartella consigliata") || !strings.Contains(page, `type="hidden" name="dir" value="`+def+`"`) || strings.Contains(page, "<details open") {
+		t.Error("pagina di scelta: cartella consigliata non proposta")
 	}
-	if page := body(http.PostForm(ts.URL+"/", url.Values{"dir": {`\\server\dati`}})); !strings.Contains(page, "condivisione di rete") {
-		t.Error("condivisione di rete non rifiutata")
+	page = body(http.PostForm(ts.URL+"/", url.Values{"dir": {`\\server\dati`}}))
+	if !strings.Contains(page, "condivisione di rete") || !strings.Contains(page, "<details open") {
+		t.Error("condivisione di rete non rifiutata, o sezione della scelta manuale non riaperta")
 	}
 	if readLocation(def) != "" {
 		t.Error("una scelta rifiutata non deve essere registrata")
@@ -112,5 +115,24 @@ func TestLocationPage(t *testing.T) {
 	}
 	if got := <-chosen; got != target || readLocation(def) != target {
 		t.Error("scelta non registrata:", got, readLocation(def))
+	}
+}
+
+// Il clic su "Usa la cartella consigliata" basta da solo a completare la scelta.
+func TestLocationRecommended(t *testing.T) {
+	def := filepath.Join(t.TempDir(), "predefinita")
+	chosen := make(chan string, 1)
+	ts := httptest.NewServer(locationHandler(def, chosen))
+	defer ts.Close()
+	resp, err := http.PostForm(ts.URL+"/", url.Values{"dir": {def}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if got := <-chosen; got != def || readLocation(def) != def {
+		t.Error("cartella consigliata non registrata:", got)
+	}
+	if st, err := os.Stat(def); err != nil || !st.IsDir() {
+		t.Error("cartella consigliata non creata")
 	}
 }
