@@ -5,6 +5,7 @@
 set -eu
 cd "$(dirname "$0")/.."
 VERSION="${VERSION:-$(git describe --tags --always 2>/dev/null || echo dev)}"
+VERSION="${VERSION#v}"
 LDFLAGS="-s -w -X github.com/davidenegrini/veronatao/internal/web.Version=${VERSION}"
 mkdir -p dist
 # -H windowsgui: nessuna finestra nera all'avvio; il programma si usa dal browser.

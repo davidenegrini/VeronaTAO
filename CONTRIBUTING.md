@@ -38,5 +38,4 @@ tradirebbe l'impostazione di tutela dei dati.
 
 ## Segnalare un problema di sicurezza
 
-Non aprire una issue pubblica: contatta privatamente i manutentori tramite la funzione di
-segnalazione riservata del repository.
+Non aprire una issue pubblica: segui le indicazioni di [SECURITY.md](SECURITY.md).
