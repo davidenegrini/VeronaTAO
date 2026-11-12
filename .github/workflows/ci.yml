@@ -22,6 +22,8 @@ jobs:
         run: test -z "$(gofmt -l .)"
       - run: go vet ./...
       - run: go test ./...
+      - name: Valida publiccode.yml
+        run: go run github.com/italia/publiccode-parser-go/v5/publiccode-parser@v5.4.3 --no-network publiccode.yml
 
   installer:
     needs: test
@@ -41,9 +43,43 @@ jobs:
         run: |
           $v = (git describe --tags --always) -replace '^v', ''
           & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$v" packaging\veronatao.iss
+      - name: Prova dell'installer (installazione, primo avvio, aggiornamento, disinstallazione)
+        shell: pwsh
+        run: packaging\prova-installer.ps1
       - uses: actions/upload-artifact@v4
         with:
           name: VeronaTAO-windows
           path: |
             dist/VeronaTAO.exe
             dist/VeronaTAO-Setup.exe
+
+  # Alla creazione di un tag vX.Y.Z pubblica la release con installer,
+  # eseguibile e impronte SHA-256. Le versioni 0.x sono marcate come
+  # versioni preliminari.
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: installer
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: VeronaTAO-windows
+          path: dist
+      - name: Pubblica la release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          cd dist
+          sha256sum VeronaTAO-Setup.exe VeronaTAO.exe > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          # Le note sono la sezione del CHANGELOG relativa a questa versione.
+          awk -v v="${TAG#v}" '/^## /{p = index($0, "[" v "]") > 0} p' ../CHANGELOG.md > note.md
+          test -s note.md
+          pre=""
+          case "$TAG" in v0.*) pre="--prerelease" ;; esac
+          gh release create "$TAG" VeronaTAO-Setup.exe VeronaTAO.exe SHA256SUMS.txt \
+            --title "VeronaTAO ${TAG#v}" --notes-file note.md $pre

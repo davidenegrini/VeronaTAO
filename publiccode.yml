@@ -1,7 +1,7 @@
-publiccodeYmlVersion: "0.4"
+publiccodeYmlVersion: "0"
 name: VeronaTAO
 url: "https://github.com/davidenegrini/VeronaTAO"
-releaseDate: "2026-11-10"
+releaseDate: "2026-11-12"
 softwareVersion: "0.1.0"
 developmentStatus: beta
 softwareType: standalone/desktop
@@ -9,7 +9,8 @@ platforms:
   - windows
   - linux
 categories:
-  - healthcare
+  - data-collection
+  - document-management
 intendedAudience:
   scope:
     - healthcare

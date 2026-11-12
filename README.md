@@ -48,7 +48,7 @@ da consegnare al paziente, con la dose scritta a parole e il pittogramma delle c
 
 ## Installazione su Windows
 
-1. Scarica `VeronaTAO-Setup.exe` dalla pagina dei rilasci ed eseguilo (oppure copia
+1. Scarica `VeronaTAO-Setup.exe` dalla pagina dei rilasci (*Releases*) ed eseguilo (oppure copia
    `VeronaTAO.exe` in una cartella a scelta: funziona anche senza installazione).
 2. Avvia VeronaTAO dal collegamento: si apre il browser. Al primo avvio conferma la **cartella
    dell'archivio** con il pulsante *Usa la cartella consigliata* (oppure scegline un'altra),
@@ -112,6 +112,18 @@ La connessione al server di posta è sempre cifrata: se il server non lo consent
 rifiutato. Oggetto e testo del messaggio non devono contenere dati del paziente. Ogni
 tentativo di invio, riuscito o no, è annotato nella cartella e nel registro delle attività.
 Prima di attivare la funzione leggi la sezione dedicata in [COMPLIANCE.md](COMPLIANCE.md).
+
+### Aggiornare a una nuova versione
+
+Esegui il nuovo `VeronaTAO-Setup.exe` sopra l'installazione esistente: l'installer arresta il
+programma se è in esecuzione, sostituisce l'eseguibile e non tocca l'archivio, che viene
+adeguato da solo al primo avvio. Prima di aggiornare esegui un backup da *Amministrazione*.
+Per verificare l'integrità del file scaricato confronta la sua impronta SHA-256 con quella
+pubblicata in `SHA256SUMS.txt`:
+
+```powershell
+Get-FileHash VeronaTAO-Setup.exe -Algorithm SHA256
+```
 
 ### Password dimenticata
 
@@ -220,6 +232,19 @@ Tutte incorporate nell'eseguibile, nessuna caricata a runtime, tutte con licenze
 - Fusione di pazienti duplicati, gruppi di studio, estrazioni configurabili e statistiche per
   operatore non sono ancora presenti.
 - Le comorbidità sono un campo di testo libero nell'anagrafica.
+
+## Pubblicare una versione
+
+1. Aggiorna `CHANGELOG.md` con una sezione `## [X.Y.Z] - data`, e `softwareVersion` e
+   `releaseDate` in `publiccode.yml`.
+2. Dopo il merge su `main`, crea e invia il tag `vX.Y.Z`.
+3. Il workflow «CI» esegue i test, compila l'installer, lo prova su Windows (installazione,
+   primo avvio, aggiornamento con il programma in esecuzione, disinstallazione) e pubblica la
+   release con `VeronaTAO-Setup.exe`, `VeronaTAO.exe` e le impronte `SHA256SUMS.txt`. Le
+   versioni 0.x sono marcate come preliminari.
+
+Per segnalare un problema di sicurezza vedi [SECURITY.md](SECURITY.md); le modifiche di ogni
+versione sono in [CHANGELOG.md](CHANGELOG.md).
 
 ## Licenza
 

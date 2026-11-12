@@ -23,7 +23,8 @@ SolidCompression=yes
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequired=admin
-CloseApplications=yes
+; La chiusura del programma in esecuzione è gestita nella sezione [Code].
+CloseApplications=no
 
 [Languages]
 Name: "italian"; MessagesFile: "compiler:Languages\Italian.isl"
@@ -56,3 +57,17 @@ Filename: "{app}\VeronaTAO.exe"; Description: "Avvia VeronaTAO"; Flags: nowait p
 [UninstallRun]
 Filename: "{sys}\taskkill.exe"; Parameters: "/IM VeronaTAO.exe /F"; Flags: runhidden; RunOnceId: "StopVeronaTAO"
 Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""VeronaTAO"""; Flags: runhidden; RunOnceId: "FirewallVeronaTAO"
+
+[Code]
+// Prima di copiare i file si arresta VeronaTAO se è in esecuzione: il
+// programma non ha finestre, quindi l'installer non potrebbe chiuderlo da
+// solo e l'aggiornamento fallirebbe con il file bloccato. L'archivio non
+// corre rischi: ogni scrittura è già completa su disco.
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  ResultCode: Integer;
+begin
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/IM VeronaTAO.exe /F', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Sleep(1500);
+  Result := '';
+end;
