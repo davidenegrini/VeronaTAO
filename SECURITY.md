@@ -1,7 +1,5 @@
 # Sicurezza
 
-VeronaTAO custodisce dati sanitari: le segnalazioni di vulnerabilità sono prese sul serio.
-
 ## Come segnalare
 
 **Non aprire una issue pubblica.** Usa la segnalazione riservata di GitHub: nella pagina del
