@@ -50,12 +50,15 @@ da consegnare al paziente, con la dose scritta a parole e il pittogramma delle c
 
 1. Scarica `VeronaTAO-Setup.exe` dalla pagina dei rilasci ed eseguilo (oppure copia
    `VeronaTAO.exe` in una cartella a scelta: funziona anche senza installazione).
-2. Avvia VeronaTAO dal collegamento: si apre il browser sulla pagina di primo avvio, dove
-   crei l'utente amministratore.
+2. Avvia VeronaTAO dal collegamento: si apre il browser. Al primo avvio conferma la **cartella
+   dell'archivio** con il pulsante *Usa la cartella consigliata* (oppure scegline un'altra),
+   poi crei l'utente amministratore.
 3. In **Amministrazione → Impostazioni** imposta subito la **passphrase dei backup** e
    l'intestazione dello studio per le stampe.
 
-L'archivio si trova in `C:\ProgramData\VeronaTAO` (file `veronatao.db`). Il programma resta
+L'archivio (file `veronatao.db`) si trova nella cartella scelta al primo avvio, che per
+impostazione predefinita è `C:\ProgramData\VeronaTAO`; la cartella in uso è indicata in
+*Amministrazione → Backup e ripristino*. Il programma resta
 in esecuzione in background finché non lo arresti da *Amministrazione → Arresta VeronaTAO* o
 spegni il computer; riaprire il collegamento riapre semplicemente il browser.
 
@@ -69,6 +72,20 @@ spegni il computer; riaprire il collegamento riapre semplicemente il browser.
 La connessione è cifrata con un certificato generato sul posto (autofirmato): al primo
 collegamento il browser mostra un avviso, da accettare una volta per postazione. Il computer
 che ospita l'archivio deve essere acceso. Non esporre mai VeronaTAO su Internet.
+
+### Scegliere o cambiare la cartella dell'archivio
+
+Al primo avvio VeronaTAO propone una cartella consigliata, che va bene nella quasi totalità
+dei casi e si conferma con un clic; chi ha esigenze particolari può indicarne un'altra. La
+cartella deve stare su un disco
+del computer, meglio se cifrato: non sono accettate condivisioni di rete né cartelle
+sincronizzate (OneDrive, Dropbox e simili), dove i dati uscirebbero dal computer e l'archivio
+potrebbe danneggiarsi. Se la cartella indicata contiene già un archivio, viene usato quello.
+
+La scelta è annotata nel file `C:\ProgramData\VeronaTAO\posizione-archivio.txt`. Per
+cambiare cartella in seguito: arresta VeronaTAO, sposta l'intera cartella dell'archivio nella
+nuova posizione, elimina quel file e riavvia: il programma chiede di nuovo la cartella e
+ritrova l'archivio spostato.
 
 ### Spostare l'archivio in un'altra sede
 
@@ -119,15 +136,50 @@ va attivata. La checklist completa è in [COMPLIANCE.md](COMPLIANCE.md).
 
 ## Compilazione dai sorgenti
 
-Serve soltanto [Go](https://go.dev) 1.26 o successivo; non occorre un compilatore C.
+Servono soltanto [Go](https://go.dev/dl/) 1.26 o successivo e Git; non occorre un compilatore
+C. L'eseguibile e l'installer già compilati si trovano anche tra gli artefatti del workflow
+«CI» su GitHub (*Actions* → ultimo run su `main` → *Artifacts*).
+
+### Su Windows
+
+Da PowerShell:
+
+```powershell
+git clone https://github.com/davidenegrini/VeronaTAO.git
+cd VeronaTAO
+go test ./...
+go build -trimpath -ldflags "-s -w -H windowsgui -X github.com/davidenegrini/veronatao/internal/web.Version=0.1.0" -o dist\VeronaTAO.exe .\cmd\veronatao
+```
+
+Il risultato è `dist\VeronaTAO.exe`: con un doppio clic si apre il browser sulla pagina di
+primo avvio. L'opzione `-H windowsgui` evita la finestra nera del terminale; per vedere i
+messaggi durante una prova basta toglierla.
+
+Per l'installer serve [Inno Setup 6](https://jrsoftware.org/isdl.php); dalla stessa cartella:
+
+```powershell
+& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /DAppVersion=0.1.0 packaging\veronatao.iss
+```
+
+Produce `dist\VeronaTAO-Setup.exe`.
+
+L'eseguibile non è firmato digitalmente: Windows SmartScreen può segnalarlo come «app non
+riconosciuta» (*Ulteriori informazioni → Esegui comunque*). Per una prova che non tocchi
+l'archivio vero: `dist\VeronaTAO.exe -dati C:\prova-veronatao`.
+
+### Su Linux o macOS
 
 ```
 go test ./...
 ./packaging/build.sh        # produce dist/VeronaTAO.exe e dist/veronatao-linux-amd64
 ```
 
-Opzioni da riga di comando: `-dati CARTELLA`, `-senza-browser`, `-reimposta-password UTENTE`,
-`-versione`.
+Lo script compila anche l'eseguibile per Windows.
+
+### Opzioni da riga di comando
+
+`-dati CARTELLA` (usa quella cartella, ignorando la posizione scelta al primo avvio),
+`-senza-browser`, `-reimposta-password UTENTE`, `-versione`.
 
 ### Struttura
 

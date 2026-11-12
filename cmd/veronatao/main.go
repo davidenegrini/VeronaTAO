@@ -41,7 +41,7 @@ func defaultDataDir() string {
 }
 
 func main() {
-	dataDir := flag.String("dati", defaultDataDir(), "cartella che contiene l'archivio")
+	dataFlag := flag.String("dati", "", "cartella che contiene l'archivio (ha la precedenza sulla posizione scelta al primo avvio)")
 	noBrowser := flag.Bool("senza-browser", false, "non aprire il browser all'avvio")
 	resetUser := flag.String("reimposta-password", "", "nome utente di cui reimpostare la password (recupero dell'amministratore)")
 	showVersion := flag.Bool("versione", false, "mostra la versione ed esce")
@@ -51,13 +51,23 @@ func main() {
 		fmt.Println("VeronaTAO", web.Version)
 		return
 	}
+	// Al primo avvio, se non c'è ancora un archivio, la cartella si sceglie
+	// nel browser.
+	resolved, err := resolveDataDir(*dataFlag, *dataFlag != "", *resetUser == "", *noBrowser)
+	if errors.Is(err, errAlreadyRunning) {
+		return
+	}
+	if err != nil {
+		fatal(defaultDataDir(), err)
+	}
+	dataDir := &resolved
 	if err := os.MkdirAll(*dataDir, 0o700); err != nil {
-		fatal(*dataDir, err)
+		fatal(defaultDataDir(), fmt.Errorf("cartella dell'archivio %s non accessibile: %w (per sceglierne un'altra eliminare il file %s in %s)", *dataDir, err, locationFile, defaultDataDir()))
 	}
 	if logFile, err := os.OpenFile(filepath.Join(*dataDir, "veronatao.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600); err == nil {
 		log.SetOutput(logFile)
 	}
-	dbPath := filepath.Join(*dataDir, "veronatao.db")
+	dbPath := filepath.Join(*dataDir, dbFile)
 	restored, err := applyPendingRestore(*dataDir, dbPath)
 	if err != nil {
 		fatal(*dataDir, err)
